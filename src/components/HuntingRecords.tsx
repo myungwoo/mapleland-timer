@@ -14,7 +14,14 @@ interface HuntingRecordsProps {
 export default function HuntingRecords({ records, onDelete, onLoad, onImport, onClearAll }: HuntingRecordsProps) {
   const [selectedRecord, setSelectedRecord] = useState<HuntingRecord | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredRecords = records.filter(record => {
+    const query = searchQuery.toLowerCase();
+    return record.location.toLowerCase().includes(query) ||
+           (record.note && record.note.toLowerCase().includes(query));
+  });
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('ko-KR', {
@@ -130,41 +137,57 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => {
-            if (window.confirm('모든 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-              onClearAll();
-            }
-          }}
-          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-        >
-          모든 기록 삭제
-        </button>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => {
+              if (window.confirm('모든 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                onClearAll();
+              }
+            }}
+            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          >
+            모든 기록 삭제
+          </button>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImport}
+              accept=".json"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              기록 불러오기
+            </button>
+            <button
+              onClick={handleExport}
+              className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+            >
+              기록 내보내기
+            </button>
+          </div>
+        </div>
+
+        <div className="relative">
           <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImport}
-            accept=".json"
-            className="hidden"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="사냥터 또는 노트로 검색"
+            className="w-full pl-10 pr-4 py-2 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            기록 불러오기
-          </button>
-          <button
-            onClick={handleExport}
-            className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-          >
-            기록 내보내기
-          </button>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
         </div>
       </div>
+
       <div className="grid gap-4">
-        {records.map(record => (
+        {filteredRecords.map(record => (
           <div
             key={record.id}
             className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
