@@ -214,7 +214,7 @@ export default function StatsForm({ elapsedTime, onSave }: StatsFormProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">사냥 입력</h2>
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">사냥 입력</h2>
         <button
           onClick={handleReset}
           className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
@@ -224,82 +224,82 @@ export default function StatsForm({ elapsedTime, onSave }: StatsFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">사냥터</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">사냥터</label>
         <input
           type="text"
           name="location"
           value={stats.location}
           onChange={handleChange}
           placeholder="사냥터 이름을 입력하세요"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-4">
-          <h3 className="font-semibold">시작</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white">시작</h3>
           <div>
-            <label className="block text-sm font-medium text-gray-700">레벨</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">레벨</label>
             <input
               type="number"
               name="startLevel"
               value={stats.startLevel}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">경험치</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">경험치</label>
             <input
               type="number"
               name="startExp"
               value={stats.startExp}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">메소</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">메소</label>
             <input
               type="number"
               name="startMeso"
               value={stats.startMeso}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
             />
           </div>
         </div>
 
         <div className="space-y-4">
-          <h3 className="font-semibold">종료</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white">종료</h3>
           <div>
-            <label className="block text-sm font-medium text-gray-700">레벨</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">레벨</label>
             <input
               type="number"
               name="endLevel"
               value={stats.endLevel}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">경험치</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">경험치</label>
             <input
               type="number"
               name="endExp"
               value={stats.endExp}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">메소</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">메소</label>
             <input
               type="number"
               name="endMeso"
               value={stats.endMeso}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
             />
           </div>
         </div>
@@ -313,44 +313,44 @@ export default function StatsForm({ elapsedTime, onSave }: StatsFormProps) {
         />
       </div>
 
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <h3 className="font-semibold mb-3">결과</h3>
+      <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">결과</h3>
         <ul className="space-y-4">
-          <li className="pb-3 border-b">
-            <div className="font-medium mb-2">레벨 업: {results.levelDiff} 레벨</div>
-            <ul className="ml-4 space-y-1 text-sm">
+          <li className="pb-3 border-b border-gray-200 dark:border-gray-600">
+            <div className="font-medium mb-2 text-gray-900 dark:text-white">레벨 업: {results.levelDiff} 레벨</div>
+            <ul className="ml-4 space-y-1 text-sm text-gray-700 dark:text-gray-300">
               <li>시작: Lv.{stats.startLevel} ({results.startExpPercentage}%)</li>
               <li>종료: Lv.{stats.endLevel} ({results.endExpPercentage}%)</li>
             </ul>
           </li>
 
-          <li className="pb-3 border-b">
-            <div className="font-medium mb-2">경험치</div>
-            <ul className="ml-4 space-y-1 text-sm">
+          <li className="pb-3 border-b border-gray-200 dark:border-gray-600">
+            <div className="font-medium mb-2 text-gray-900 dark:text-white">경험치</div>
+            <ul className="ml-4 space-y-1 text-sm text-gray-700 dark:text-gray-300">
               <li>총 획득: {results.expGained.toLocaleString()}</li>
               <li>5분당: {results.expPerFiveMin.toLocaleString()}</li>
             </ul>
           </li>
 
-          <li className="pb-3 border-b">
-            <div className="font-medium mb-2">메소</div>
-            <ul className="ml-4 space-y-1 text-sm">
+          <li className="pb-3 border-b border-gray-200 dark:border-gray-600">
+            <div className="font-medium mb-2 text-gray-900 dark:text-white">메소</div>
+            <ul className="ml-4 space-y-1 text-sm text-gray-700 dark:text-gray-300">
               <li>총 획득: {results.rawMesoGained.toLocaleString()} 메소</li>
               <li>5분당: {Math.round(results.rawMesoGained / (elapsedTime / 60) * 5).toLocaleString()} 메소</li>
             </ul>
           </li>
 
           {results.itemStats.length > 0 && (
-            <li className="pb-3 border-b">
-              <div className="font-medium mb-2">아이템</div>
+            <li className="pb-3 border-b border-gray-200 dark:border-gray-600">
+              <div className="font-medium mb-2 text-gray-900 dark:text-white">아이템</div>
               <ul className="ml-4 space-y-2 text-sm">
                 {results.itemStats.map((item, index) => (
                   <li key={index}>
-                    <div className="font-medium text-gray-700">{item.name}</div>
-                    <ul className="ml-4 space-y-1">
+                    <div className="font-medium text-gray-700 dark:text-gray-300">{item.name}</div>
+                    <ul className="ml-4 space-y-1 text-gray-700 dark:text-gray-300">
                       <li>총 {item.diff > 0 ? '획득' : '사용'}: {Math.abs(item.diff).toLocaleString()}개</li>
                       <li>5분당 {item.diff > 0 ? '획득' : '사용'}: {Math.abs(item.perFiveMin).toLocaleString()}개</li>
-                      <li className="text-gray-500">가치: {item.value.toLocaleString()} 메소</li>
+                      <li className="text-gray-500 dark:text-gray-400">가치: {item.value.toLocaleString()} 메소</li>
                     </ul>
                   </li>
                 ))}
@@ -359,10 +359,10 @@ export default function StatsForm({ elapsedTime, onSave }: StatsFormProps) {
           )}
 
           <li>
-            <div className="font-medium mb-2">순수익</div>
+            <div className="font-medium mb-2 text-gray-900 dark:text-white">순수익</div>
             <ul className="ml-4 space-y-1 text-sm">
-              <li className="font-medium text-blue-600">총 순수익: {results.netMesoGained.toLocaleString()} 메소</li>
-              <li className="font-medium text-blue-600">5분당 순수익: {results.mesoPerFiveMin.toLocaleString()} 메소</li>
+              <li className="font-medium text-blue-600 dark:text-blue-400">총 순수익: {results.netMesoGained.toLocaleString()} 메소</li>
+              <li className="font-medium text-blue-600 dark:text-blue-400">5분당 순수익: {results.mesoPerFiveMin.toLocaleString()} 메소</li>
             </ul>
           </li>
         </ul>

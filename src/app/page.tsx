@@ -31,20 +31,20 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-3xl font-bold text-center mb-8">메이플랜드 사냥 타이머</h1>
+    <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
+      <h1 className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">메이플랜드 사냥 타이머</h1>
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-1 md:grid-cols-[400px_1fr] gap-8">
           <div className="space-y-8">
-            <div className="p-6 bg-white rounded-lg shadow-md">
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
               <Timer onTimeUpdate={setElapsedTime} />
             </div>
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold mb-4">사냥 기록 목록</h2>
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">사냥 기록 목록</h2>
               <HuntingRecords records={records} onDelete={handleDeleteRecord} />
             </div>
           </div>
-          <div className="p-6 bg-white rounded-lg shadow-md">
+          <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
             <StatsForm elapsedTime={elapsedTime} onSave={handleSaveRecord} />
           </div>
         </div>

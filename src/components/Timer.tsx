@@ -54,8 +54,8 @@ export default function Timer({ onTimeUpdate }: TimerProps) {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <h2 className="text-2xl font-semibold">타이머</h2>
-      <div className="text-5xl font-mono font-bold">
+      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">타이머</h2>
+      <div className="text-5xl font-mono font-bold text-gray-900 dark:text-white">
         {hours}:{minutes}:{seconds}
       </div>
       <div className="flex gap-4">
@@ -63,9 +63,9 @@ export default function Timer({ onTimeUpdate }: TimerProps) {
           onClick={isRunning ? handleStop : handleStart}
           className={`px-6 py-2 rounded-lg font-semibold ${
             isRunning
-              ? 'bg-red-500 hover:bg-red-600'
-              : 'bg-green-500 hover:bg-green-600'
-          } text-white transition-colors`}
+              ? 'bg-red-500 hover:bg-red-600 text-white'
+              : 'bg-green-500 hover:bg-green-600 text-white'
+          } transition-colors`}
         >
           {isRunning ? '정지' : '시작'}
         </button>
