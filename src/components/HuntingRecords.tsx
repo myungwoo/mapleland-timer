@@ -39,6 +39,7 @@ export default function HuntingRecords({ records, onDelete, onLoad, onImport, on
 시간: ${formatDate(record.timestamp)}
 장소: ${record.location}
 진행 시간: ${formatDuration(record.duration)}
+${record.note ? `\n메모: ${record.note}` : ''}
 
 레벨: Lv.${record.stats.startLevel} (${record.results.startExpPercentage}%) → Lv.${record.stats.endLevel} (${record.results.endExpPercentage}%)
 레벨 상승: ${record.results.levelDiff} 레벨
@@ -174,6 +175,11 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                 <h3 className="font-medium text-gray-900 dark:text-white">{record.location}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(record.timestamp)}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">진행 시간: {formatDuration(record.duration)}</p>
+                {record.note && (
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 italic">
+                    {record.note}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
                 <button

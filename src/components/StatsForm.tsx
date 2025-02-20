@@ -48,15 +48,17 @@ interface StatsFormProps {
   onSave: (record: HuntingRecord) => void;
   initialStats?: HuntingStats | null;
   initialItems?: Item[];
+  initialNote?: string;
 }
 
 // localStorage 키
 const STORAGE_KEYS = {
   STATS: 'maple-timer-stats',
-  ITEMS: 'maple-timer-items'
+  ITEMS: 'maple-timer-items',
+  NOTE: 'maple-timer-note'
 } as const;
 
-export default function StatsForm({ elapsedTime, onSave, initialStats = null, initialItems = [] }: StatsFormProps) {
+export default function StatsForm({ elapsedTime, onSave, initialStats = null, initialItems = [], initialNote = '' }: StatsFormProps) {
   const [stats, setStats] = useState<HuntingStats>(() => {
     if (initialStats) {
       return initialStats;
@@ -95,6 +97,17 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
     return [];
   });
 
+  const [note, setNote] = useState<string>(() => {
+    if (initialNote) {
+      return initialNote;
+    }
+    if (typeof window !== 'undefined') {
+      const savedNote = localStorage.getItem(STORAGE_KEYS.NOTE);
+      return savedNote || '';
+    }
+    return '';
+  });
+
   useEffect(() => {
     if (initialStats) {
       setStats(initialStats);
@@ -108,12 +121,22 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
   }, [initialItems]);
 
   useEffect(() => {
+    if (initialNote) {
+      setNote(initialNote);
+    }
+  }, [initialNote]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
   }, [stats]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
   }, [items]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.NOTE, note);
+  }, [note]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -135,6 +158,7 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
         endMeso: ''
       });
       setItems([]);
+      setNote('');
     }
   };
 
@@ -169,6 +193,7 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
       location: stats.location,
       stats,
       items,
+      note: note.trim(),
       results
     };
 
@@ -415,6 +440,16 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
             </ul>
           </li>
         </ul>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">노트</label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="기록에 대한 메모를 입력하세요"
+          className="w-full h-24 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
+        />
       </div>
 
       <div className="flex justify-end">

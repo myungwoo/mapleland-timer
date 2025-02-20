@@ -17,6 +17,7 @@ export interface HuntingRecord {
   location: string;
   stats: HuntingStats;
   items: Item[];
+  note: string;
   results: {
     levelDiff: number;
     startExpPercentage: string;

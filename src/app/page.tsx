@@ -12,7 +12,8 @@ const STORAGE_KEY = {
   RECORDS: 'maple-timer-records',
   STATS: 'maple-timer-stats',
   ITEMS: 'maple-timer-items',
-  TIMER: 'maple-timer-state'
+  TIMER: 'maple-timer-state',
+  NOTE: 'maple-timer-note'
 };
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
   const [records, setRecords] = useState<HuntingRecord[]>([]);
   const [currentStats, setCurrentStats] = useState<HuntingStats | null>(null);
   const [currentItems, setCurrentItems] = useState<Item[]>([]);
+  const [currentNote, setCurrentNote] = useState<string>('');
 
   // 모든 데이터 로드
   useEffect(() => {
@@ -58,6 +60,12 @@ export default function Home() {
         setCurrentItems(JSON.parse(savedItems));
       }
 
+      // 노트 데이터 로드
+      const savedNote = localStorage.getItem(STORAGE_KEY.NOTE);
+      if (savedNote) {
+        setCurrentNote(savedNote);
+      }
+
       setIsLoading(false);
     }
   }, []);
@@ -87,6 +95,10 @@ export default function Home() {
     // 아이템 데이터 설정
     setCurrentItems(record.items);
     localStorage.setItem(STORAGE_KEY.ITEMS, JSON.stringify(record.items));
+
+    // 노트 데이터 설정
+    setCurrentNote(record.note);
+    localStorage.setItem(STORAGE_KEY.NOTE, record.note);
   };
 
   const handleImportRecords = (newRecords: HuntingRecord[]) => {
@@ -143,6 +155,7 @@ export default function Home() {
               onSave={handleSaveRecord}
               initialStats={currentStats}
               initialItems={currentItems}
+              initialNote={currentNote}
             />
           </div>
         </div>
