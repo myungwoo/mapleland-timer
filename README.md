@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 메이플랜드 사냥 타이머
 
-## Getting Started
+메이플랜드 사냥 시 경험치와 메소 수익을 추적하고 기록하는 웹 애플리케이션입니다.
 
-First, run the development server:
+## 주요 기능
+
+- ⏱️ 사냥 시간 측정
+- 📊 경험치 및 레벨업 통계
+  - 시작/종료 레벨 및 경험치 퍼센트 표시
+  - 총 획득 경험치 및 5분당 경험치 계산
+- 💰 메소 수익 계산
+  - 순수 메소 획득량
+  - 아이템 가치 변동
+  - 총 순수익 및 5분당 수익 계산
+- 📝 아이템 변동 관리
+  - 아이템별 시작/종료 수량 기록
+  - 아이템 가치 계산
+- 💾 데이터 저장
+  - 입력 데이터 자동 저장 (localStorage)
+  - 사냥 기록 저장 및 관리
+- 📱 반응형 디자인
+
+## 기술 스택
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- localStorage를 이용한 데이터 저장
+
+## 시작하기
 
 ```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 사용 방법
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. 사냥 시작 시 타이머를 시작합니다.
+2. 시작 시점의 레벨, 경험치, 메소를 입력합니다.
+3. 필요한 경우 아이템 변동 사항을 추가합니다.
+4. 사냥 종료 후 종료 시점의 레벨, 경험치, 메소를 입력합니다.
+5. 결과를 확인하고 기록을 저장합니다.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 크레딧
 
-## Learn More
+이 프로젝트는 대부분의 코드가 Anthropic의 Claude AI를 통해 작성되었습니다. AI는 코드 작성, 버그 수정, 기능 개선에 도움을 주었으며, 인간 개발자의 검토와 수정을 거쳐 완성되었습니다.
 
-To learn more about Next.js, take a look at the following resources:
+## 라이선스
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT License
