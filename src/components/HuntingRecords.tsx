@@ -1,17 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { HuntingRecord } from '@/types/hunting';
 
 interface HuntingRecordsProps {
   records: HuntingRecord[];
   onDelete: (id: string) => void;
   onLoad: (record: HuntingRecord) => void;
+  onImport: (records: HuntingRecord[]) => void;
+  onClearAll: () => void;
 }
 
-export default function HuntingRecords({ records, onDelete, onLoad }: HuntingRecordsProps) {
+export default function HuntingRecords({ records, onDelete, onLoad, onImport, onClearAll }: HuntingRecordsProps) {
   const [selectedRecord, setSelectedRecord] = useState<HuntingRecord | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('ko-KR', {
@@ -62,16 +65,103 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
     }
   };
 
+  const handleExport = () => {
+    const data = JSON.stringify(records, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `maple-timer-records-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedRecords = JSON.parse(e.target?.result as string);
+        if (Array.isArray(importedRecords)) {
+          if (window.confirm('기존 기록에 추가하시겠습니까?\n취소를 선택하면 기존 기록이 삭제됩니다.')) {
+            onImport([...records, ...importedRecords]);
+          } else {
+            onImport(importedRecords);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse records:', error);
+        alert('파일 형식이 올바르지 않습니다.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // Reset file input
+  };
+
   if (records.length === 0) {
     return (
-      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-        저장된 사냥 기록이 없습니다.
+      <div className="space-y-4">
+        <div className="flex justify-end gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImport}
+            accept=".json"
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            기록 불러오기
+          </button>
+        </div>
+        <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+          저장된 사냥 기록이 없습니다.
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <button
+          onClick={() => {
+            if (window.confirm('모든 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+              onClearAll();
+            }
+          }}
+          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+        >
+          모든 기록 삭제
+        </button>
+        <div className="flex gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImport}
+            accept=".json"
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            기록 불러오기
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+          >
+            기록 내보내기
+          </button>
+        </div>
+      </div>
       <div className="grid gap-4">
         {records.map(record => (
           <div

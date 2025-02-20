@@ -89,6 +89,16 @@ export default function Home() {
     localStorage.setItem(STORAGE_KEY.ITEMS, JSON.stringify(record.items));
   };
 
+  const handleImportRecords = (newRecords: HuntingRecord[]) => {
+    setRecords(newRecords);
+    localStorage.setItem(STORAGE_KEY.RECORDS, JSON.stringify(newRecords));
+  };
+
+  const handleClearAllRecords = () => {
+    setRecords([]);
+    localStorage.setItem(STORAGE_KEY.RECORDS, JSON.stringify([]));
+  };
+
   if (isLoading) {
     return (
       <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
@@ -122,6 +132,8 @@ export default function Home() {
                 records={records}
                 onDelete={handleDeleteRecord}
                 onLoad={handleLoadRecord}
+                onImport={handleImportRecords}
+                onClearAll={handleClearAllRecords}
               />
             </div>
           </div>
