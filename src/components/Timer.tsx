@@ -130,6 +130,20 @@ export default function Timer({
     };
   }, []);
 
+  const getNextHourTime = useCallback(() => {
+    if (!isRunning || !startTimeRef.current) return null;
+
+    const now = Date.now();
+    const elapsedMs = now - startTimeRef.current;
+    const nextHourMs = Math.ceil(elapsedMs / (3600 * 1000)) * (3600 * 1000);
+    const nextHourTime = new Date(startTimeRef.current + nextHourMs);
+
+    return nextHourTime.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, [isRunning]);
+
   const handleStart = () => {
     const now = Date.now();
     startTimeRef.current = now - (time * 1000);
@@ -159,6 +173,7 @@ export default function Timer({
   };
 
   const { hours, minutes, seconds } = formatTime(time);
+  const nextHourTime = getNextHourTime();
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -166,6 +181,11 @@ export default function Timer({
       <div className="text-5xl font-mono font-bold text-gray-900 dark:text-white">
         {hours}:{minutes}:{seconds}
       </div>
+      {isRunning && nextHourTime && (
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          {parseInt(hours) + 1}시간 도달 예정: {nextHourTime}
+        </div>
+      )}
       <div className="flex gap-4">
         <button
           onClick={isRunning ? handleStop : handleStart}
