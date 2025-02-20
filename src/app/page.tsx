@@ -10,18 +10,26 @@ import { HuntingRecord } from '@/types/hunting';
 const STORAGE_KEY = 'maple-timer-records';
 
 export default function Home() {
+  const [isLoading, setIsLoading] = useState(true);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
-  const [records, setRecords] = useState<HuntingRecord[]>(() => {
+  const [records, setRecords] = useState<HuntingRecord[]>([]);
+
+  // 모든 데이터 로드
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedRecords = localStorage.getItem(STORAGE_KEY);
-      return savedRecords ? JSON.parse(savedRecords) : [];
+      if (savedRecords) {
+        setRecords(JSON.parse(savedRecords));
+      }
+      setIsLoading(false);
     }
-    return [];
-  });
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  }, [records]);
+    if (!isLoading) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+  }, [records, isLoading]);
 
   const handleSaveRecord = (record: HuntingRecord) => {
     setRecords(prev => [record, ...prev]);
@@ -30,6 +38,18 @@ export default function Home() {
   const handleDeleteRecord = (id: string) => {
     setRecords(prev => prev.filter(record => record.id !== id));
   };
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
+        <ThemeToggle />
+        <div className="flex flex-col items-center justify-center h-[80vh]">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">데이터를 불러오는 중...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">

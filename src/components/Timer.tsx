@@ -15,35 +15,25 @@ interface TimerState {
 const STORAGE_KEY = 'maple-timer-state';
 
 export default function Timer({ onTimeUpdate }: TimerProps) {
-  const [time, setTime] = useState<number>(() => {
+  const [time, setTime] = useState<number>(0);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+
+  // 초기 상태 로드
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedState = localStorage.getItem(STORAGE_KEY);
       if (savedState) {
         const state: TimerState = JSON.parse(savedState);
         if (state.isRunning) {
           const timeDiff = Math.floor((Date.now() - state.lastUpdated) / 1000);
-          return state.time + timeDiff;
+          setTime(state.time + timeDiff);
+        } else {
+          setTime(state.time);
         }
-        return state.time;
+        setIsRunning(state.isRunning);
       }
+      onTimeUpdate(time);
     }
-    return 0;
-  });
-
-  const [isRunning, setIsRunning] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const savedState = localStorage.getItem(STORAGE_KEY);
-      if (savedState) {
-        const state: TimerState = JSON.parse(savedState);
-        return state.isRunning;
-      }
-    }
-    return false;
-  });
-
-  // 초기 시간을 부모 컴포넌트에 알림
-  useEffect(() => {
-    onTimeUpdate(time);
   }, []);
 
   // 상태 변경시 저장
@@ -91,9 +81,11 @@ export default function Timer({ onTimeUpdate }: TimerProps) {
   const handleStart = () => setIsRunning(true);
   const handleStop = () => setIsRunning(false);
   const handleReset = () => {
-    setIsRunning(false);
-    setTime(0);
-    onTimeUpdate(0);
+    if (window.confirm('타이머를 초기화하시겠습니까?')) {
+      setIsRunning(false);
+      setTime(0);
+      onTimeUpdate(0);
+    }
   };
 
   const { hours, minutes, seconds } = formatTime(time);
