@@ -3,6 +3,7 @@
 import Timer from '@/components/Timer';
 import StatsForm from '@/components/StatsForm';
 import HuntingRecords from '@/components/HuntingRecords';
+import ThemeToggle from '@/components/ThemeToggle';
 import { useState, useEffect } from 'react';
 import { HuntingRecord } from '@/types/hunting';
 
@@ -32,6 +33,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
+      <ThemeToggle />
       <h1 className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">메이플랜드 사냥 타이머</h1>
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-1 md:grid-cols-[400px_1fr] gap-8">
