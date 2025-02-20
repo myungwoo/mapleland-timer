@@ -46,6 +46,8 @@ const LEVEL_EXP_MAP: { [key: number]: number } = {
 interface StatsFormProps {
   elapsedTime: number;
   onSave: (record: HuntingRecord) => void;
+  initialStats?: HuntingStats | null;
+  initialItems?: Item[];
 }
 
 // localStorage 키
@@ -54,8 +56,11 @@ const STORAGE_KEYS = {
   ITEMS: 'maple-timer-items'
 } as const;
 
-export default function StatsForm({ elapsedTime, onSave }: StatsFormProps) {
+export default function StatsForm({ elapsedTime, onSave, initialStats = null, initialItems = [] }: StatsFormProps) {
   const [stats, setStats] = useState<HuntingStats>(() => {
+    if (initialStats) {
+      return initialStats;
+    }
     if (typeof window !== 'undefined') {
       const savedStats = localStorage.getItem(STORAGE_KEYS.STATS);
       return savedStats ? JSON.parse(savedStats) : {
@@ -80,12 +85,27 @@ export default function StatsForm({ elapsedTime, onSave }: StatsFormProps) {
   });
 
   const [items, setItems] = useState<Item[]>(() => {
+    if (initialItems.length > 0) {
+      return initialItems;
+    }
     if (typeof window !== 'undefined') {
       const savedItems = localStorage.getItem(STORAGE_KEYS.ITEMS);
       return savedItems ? JSON.parse(savedItems) : [];
     }
     return [];
   });
+
+  useEffect(() => {
+    if (initialStats) {
+      setStats(initialStats);
+    }
+  }, [initialStats]);
+
+  useEffect(() => {
+    if (initialItems.length > 0) {
+      setItems(initialItems);
+    }
+  }, [initialItems]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));

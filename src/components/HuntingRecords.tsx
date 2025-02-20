@@ -6,9 +6,10 @@ import { HuntingRecord } from '@/types/hunting';
 interface HuntingRecordsProps {
   records: HuntingRecord[];
   onDelete: (id: string) => void;
+  onLoad: (record: HuntingRecord) => void;
 }
 
-export default function HuntingRecords({ records, onDelete }: HuntingRecordsProps) {
+export default function HuntingRecords({ records, onDelete, onLoad }: HuntingRecordsProps) {
   const [selectedRecord, setSelectedRecord] = useState<HuntingRecord | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -85,6 +86,23 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                 <p className="text-sm text-gray-500 dark:text-gray-400">진행 시간: {formatDuration(record.duration)}</p>
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm('이 기록의 데이터를 불러오시겠습니까?\n현재 입력된 데이터는 사라집니다.')) {
+                      onLoad(record);
+                    }
+                  }}
+                  className="relative group p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="기록 불러오기"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-green-500 dark:text-green-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    기록 불러오기
+                  </span>
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

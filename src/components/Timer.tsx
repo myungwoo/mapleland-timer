@@ -1,72 +1,124 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface TimerProps {
   onTimeUpdate: (time: number) => void;
+  initialTime?: number;
+  isRunning?: boolean;
+  onRunningChange?: (isRunning: boolean) => void;
 }
 
 interface TimerState {
   time: number;
   isRunning: boolean;
-  lastUpdated: number;
+  startTime: number | null;
 }
 
 const STORAGE_KEY = 'maple-timer-state';
 
-export default function Timer({ onTimeUpdate }: TimerProps) {
-  const [time, setTime] = useState<number>(0);
+export default function Timer({
+  onTimeUpdate,
+  initialTime = 0,
+  isRunning: externalIsRunning,
+  onRunningChange
+}: TimerProps) {
+  const [time, setTime] = useState<number>(initialTime);
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const startTimeRef = useRef<number>(0);
+  const isInitializedRef = useRef<boolean>(false);
 
   // 초기 상태 로드
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (!isInitializedRef.current && typeof window !== 'undefined') {
       const savedState = localStorage.getItem(STORAGE_KEY);
       if (savedState) {
-        const state: TimerState = JSON.parse(savedState);
-        if (state.isRunning) {
-          const timeDiff = Math.floor((Date.now() - state.lastUpdated) / 1000);
-          setTime(state.time + timeDiff);
-        } else {
-          setTime(state.time);
+        try {
+          const state: TimerState = JSON.parse(savedState);
+          if (externalIsRunning === undefined) {
+            setIsRunning(state.isRunning);
+            setTime(state.time);
+            onTimeUpdate(state.time);
+            if (state.isRunning && state.startTime) {
+              startTimeRef.current = state.startTime;
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse timer state:', error);
         }
-        setIsRunning(state.isRunning);
       }
-      onTimeUpdate(time);
+      isInitializedRef.current = true;
     }
-  }, []);
+  }, [externalIsRunning, onTimeUpdate]);
+
+  // 외부에서 제어되는 isRunning 상태와 initialTime 동기화
+  useEffect(() => {
+    if (isInitializedRef.current) {
+      if (externalIsRunning !== undefined) {
+        setIsRunning(externalIsRunning);
+      }
+      if (!isRunning) {
+        setTime(initialTime);
+        onTimeUpdate(initialTime);
+        if (externalIsRunning) {
+          startTimeRef.current = Date.now() - (initialTime * 1000);
+        }
+      }
+    }
+  }, [externalIsRunning, initialTime, isRunning, onTimeUpdate]);
 
   // 상태 변경시 저장
   useEffect(() => {
-    const state: TimerState = {
-      time,
-      isRunning,
-      lastUpdated: Date.now()
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (isInitializedRef.current) {
+      const state: TimerState = {
+        time,
+        isRunning,
+        startTime: isRunning ? startTimeRef.current : null
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
   }, [time, isRunning]);
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let animationFrameId: number;
+
+    const updateTimer = () => {
+      if (isRunning && startTimeRef.current > 0) {
+        const now = Date.now();
+        const newTime = Math.floor((now - startTimeRef.current) / 1000);
+
+        if (newTime !== time) {
+          setTime(newTime);
+          onTimeUpdate(newTime);
+        }
+
+        animationFrameId = requestAnimationFrame(updateTimer);
+      }
+    };
 
     if (isRunning) {
-      intervalId = setInterval(() => {
-        setTime(prevTime => {
-          const newTime = prevTime + 1;
-          onTimeUpdate(newTime);
-          return newTime;
-        });
-      }, 1000);
+      if (startTimeRef.current === 0) {
+        startTimeRef.current = Date.now() - (time * 1000);
+      }
+      updateTimer();
     }
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isRunning, onTimeUpdate]);
+  }, [isRunning, time, onTimeUpdate]);
 
   const formatTime = useCallback((totalSeconds: number) => {
+    if (!Number.isFinite(totalSeconds)) {
+      return {
+        hours: '00',
+        minutes: '00',
+        seconds: '00'
+      };
+    }
+
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -78,11 +130,29 @@ export default function Timer({ onTimeUpdate }: TimerProps) {
     };
   }, []);
 
-  const handleStart = () => setIsRunning(true);
-  const handleStop = () => setIsRunning(false);
+  const handleStart = () => {
+    const now = Date.now();
+    startTimeRef.current = now - (time * 1000);
+    setIsRunning(true);
+    if (onRunningChange) {
+      onRunningChange(true);
+    }
+  };
+
+  const handleStop = () => {
+    setIsRunning(false);
+    if (onRunningChange) {
+      onRunningChange(false);
+    }
+  };
+
   const handleReset = () => {
     if (window.confirm('타이머를 초기화하시겠습니까?')) {
       setIsRunning(false);
+      if (onRunningChange) {
+        onRunningChange(false);
+      }
+      startTimeRef.current = 0;
       setTime(0);
       onTimeUpdate(0);
     }
