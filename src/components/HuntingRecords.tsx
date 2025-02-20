@@ -198,6 +198,20 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                 <h3 className="font-medium text-gray-900 dark:text-white">{record.location}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(record.timestamp)}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">진행 시간: {formatDuration(record.duration)}</p>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <p className="text-gray-600 dark:text-gray-300">
+                    경험치: {record.results.expGained.toLocaleString()}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    5분당: {record.results.expPerFiveMin.toLocaleString()}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    순수익: {record.results.netMesoGained.toLocaleString()}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    5분당: {record.results.mesoPerFiveMin.toLocaleString()}
+                  </p>
+                </div>
                 {record.note && (
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 italic">
                     {record.note}
