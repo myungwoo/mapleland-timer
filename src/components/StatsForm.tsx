@@ -138,6 +138,23 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
     }
   };
 
+  const handleSwap = () => {
+    setStats(prev => ({
+      ...prev,
+      startLevel: prev.endLevel,
+      startExp: prev.endExp,
+      startMeso: prev.endMeso,
+      endLevel: prev.startLevel,
+      endExp: prev.startExp,
+      endMeso: prev.startMeso
+    }));
+    setItems(prev => prev.map(item => ({
+      ...item,
+      startCount: item.endCount,
+      endCount: item.startCount
+    })));
+  };
+
   const handleSave = () => {
     if (!stats.location.trim()) {
       alert('사냥터 이름을 입력해주세요.');
@@ -257,7 +274,19 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-4">
-          <h3 className="font-semibold text-gray-900 dark:text-white">시작</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 dark:text-white">시작</h3>
+            <button
+              onClick={handleSwap}
+              className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="시작/종료 값 교체"
+              title="시작/종료 값 교체"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-600 dark:text-gray-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+              </svg>
+            </button>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">레벨</label>
             <input
