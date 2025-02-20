@@ -6,9 +6,55 @@ interface TimerProps {
   onTimeUpdate: (time: number) => void;
 }
 
+interface TimerState {
+  time: number;
+  isRunning: boolean;
+  lastUpdated: number;
+}
+
+const STORAGE_KEY = 'maple-timer-state';
+
 export default function Timer({ onTimeUpdate }: TimerProps) {
-  const [time, setTime] = useState<number>(0);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [time, setTime] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem(STORAGE_KEY);
+      if (savedState) {
+        const state: TimerState = JSON.parse(savedState);
+        if (state.isRunning) {
+          const timeDiff = Math.floor((Date.now() - state.lastUpdated) / 1000);
+          return state.time + timeDiff;
+        }
+        return state.time;
+      }
+    }
+    return 0;
+  });
+
+  const [isRunning, setIsRunning] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem(STORAGE_KEY);
+      if (savedState) {
+        const state: TimerState = JSON.parse(savedState);
+        return state.isRunning;
+      }
+    }
+    return false;
+  });
+
+  // 초기 시간을 부모 컴포넌트에 알림
+  useEffect(() => {
+    onTimeUpdate(time);
+  }, []);
+
+  // 상태 변경시 저장
+  useEffect(() => {
+    const state: TimerState = {
+      time,
+      isRunning,
+      lastUpdated: Date.now()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [time, isRunning]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
