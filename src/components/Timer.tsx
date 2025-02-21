@@ -7,51 +7,87 @@ interface TimerProps {
   initialTime?: number;
   isRunning?: boolean;
   onRunningChange?: (isRunning: boolean) => void;
+  mode?: 'stopwatch' | 'timer';
+  onModeChange?: (mode: 'stopwatch' | 'timer') => void;
+  targetTime: number | null;
+  onTargetTimeChange: (targetTime: number | null) => void;
 }
-
-interface TimerState {
-  time: number;
-  isRunning: boolean;
-  startTime: number | null;
-}
-
-const STORAGE_KEY = 'maple-timer-state';
 
 export default function Timer({
   onTimeUpdate,
   initialTime = 0,
   isRunning: externalIsRunning,
-  onRunningChange
+  onRunningChange,
+  mode: externalMode = 'stopwatch',
+  onModeChange,
+  targetTime,
+  onTargetTimeChange
 }: TimerProps) {
   const [time, setTime] = useState<number>(initialTime);
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const startTimeRef = useRef<number>(0);
+  const [mode, setMode] = useState<'stopwatch' | 'timer'>(externalMode);
   const isInitializedRef = useRef<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editValues, setEditValues] = useState({ hours: '00', minutes: '00', seconds: '00' });
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isAudioLoaded, setIsAudioLoaded] = useState<boolean>(false);
+  const [isFlashing, setIsFlashing] = useState<boolean>(false);
 
-  // 초기 상태 로드
+  const startFlashing = useCallback(() => {
+    setIsFlashing(true);
+    setTimeout(() => setIsFlashing(false), 1500); // 3번 깜빡임 (0.5초 * 3)
+  }, []);
+
+  // 알림음 초기화
   useEffect(() => {
-    if (!isInitializedRef.current && typeof window !== 'undefined') {
-      const savedState = localStorage.getItem(STORAGE_KEY);
-      if (savedState) {
-        try {
-          const state: TimerState = JSON.parse(savedState);
-          if (externalIsRunning === undefined) {
-            setIsRunning(state.isRunning);
-            setTime(state.time);
-            onTimeUpdate(state.time);
-            if (state.isRunning && state.startTime) {
-              startTimeRef.current = state.startTime;
-            }
-          }
-        } catch (error) {
-          console.error('Failed to parse timer state:', error);
-        }
-      }
-      isInitializedRef.current = true;
+    if (typeof window !== 'undefined') {
+      audioRef.current = new Audio('./alert.mp3');
+      audioRef.current.addEventListener('canplaythrough', () => {
+        setIsAudioLoaded(true);
+      });
+      audioRef.current.load();
     }
-  }, [externalIsRunning, onTimeUpdate]);
+  }, []);
+
+  // 알림음 재생 함수
+  const playAlertSound = useCallback(() => {
+    startFlashing();
+    if (audioRef.current && isAudioLoaded) {
+      audioRef.current.play().catch(error => {
+        if (error.name === 'NotAllowedError') {
+          console.log('Timer completed but sound could not be played due to browser restrictions');
+        } else {
+          console.error('Failed to play alert sound:', error);
+        }
+      });
+      // 소리 재생 성공 여부와 관계없이 시각적 피드백 제공
+    }
+  }, [startFlashing, isAudioLoaded]);
+
+  const handleStart = useCallback(() => {
+    const now = Date.now();
+    if (mode === 'timer') {
+      onTargetTimeChange(now + (time * 1000)); // 타이머 모드에서는 목표 시간을 설정
+    } else {
+      onTargetTimeChange(now - (time * 1000)); // 스탑워치 모드에서는 시작 시간을 설정
+    }
+    setIsRunning(true);
+    if (onRunningChange) {
+      onRunningChange(true);
+    }
+  }, [mode, time, onTargetTimeChange, onRunningChange]);
+
+  const handleStop = useCallback(() => {
+    setIsRunning(false);
+    if (onRunningChange) {
+      onRunningChange(false);
+    }
+  }, [onRunningChange]);
+
+  // 외부에서 제어되는 mode 상태 동기화
+  useEffect(() => {
+    setMode(externalMode);
+  }, [externalMode]);
 
   // 외부에서 제어되는 isRunning 상태와 initialTime 동기화
   useEffect(() => {
@@ -63,35 +99,66 @@ export default function Timer({
         setTime(initialTime);
         onTimeUpdate(initialTime);
         if (externalIsRunning) {
-          startTimeRef.current = Date.now() - (initialTime * 1000);
+          const now = Date.now();
+          if (mode === 'timer') {
+            onTargetTimeChange(now + (initialTime * 1000));
+          } else {
+            onTargetTimeChange(now - (initialTime * 1000));
+          }
         }
       }
+    } else {
+      isInitializedRef.current = true;
     }
-  }, [externalIsRunning, initialTime, isRunning, onTimeUpdate]);
-
-  // 상태 변경시 저장
-  useEffect(() => {
-    if (isInitializedRef.current) {
-      const state: TimerState = {
-        time,
-        isRunning,
-        startTime: isRunning ? startTimeRef.current : null
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-  }, [time, isRunning]);
+  }, [externalIsRunning, initialTime, isRunning, onTimeUpdate, mode, onTargetTimeChange]);
 
   useEffect(() => {
     let animationFrameId: number;
+    let lastUpdateTime = Date.now();
 
     const updateTimer = () => {
-      if (isRunning && startTimeRef.current > 0) {
+      if (isRunning && targetTime !== null) {
         const now = Date.now();
-        const newTime = Math.floor((now - startTimeRef.current) / 1000);
+        const timeDiff = now - lastUpdateTime;
+        lastUpdateTime = now;
 
-        if (newTime !== time) {
-          setTime(newTime);
-          onTimeUpdate(newTime);
+        // 브라우저 탭이 비활성화되어 있었을 경우를 대비해 시간 차이가 너무 크면 보정
+        if (timeDiff > 1000) {
+          if (mode === 'timer') {
+            const remainingTime = Math.max(0, Math.floor((targetTime - now) / 1000));
+            setTime(remainingTime);
+            onTimeUpdate(remainingTime);
+
+            if (remainingTime === 0) {
+              playAlertSound();
+              handleStop();
+              return;
+            }
+          } else {
+            const elapsedTime = Math.floor((now - targetTime) / 1000);
+            setTime(elapsedTime);
+            onTimeUpdate(elapsedTime);
+          }
+        } else {
+          if (mode === 'timer') {
+            const remainingTime = Math.max(0, Math.floor((targetTime - now) / 1000));
+            if (remainingTime !== time) {
+              setTime(remainingTime);
+              onTimeUpdate(remainingTime);
+
+              if (remainingTime === 0) {
+                playAlertSound();
+                handleStop();
+                return;
+              }
+            }
+          } else {
+            const elapsedTime = Math.floor((now - targetTime) / 1000);
+            if (elapsedTime !== time) {
+              setTime(elapsedTime);
+              onTimeUpdate(elapsedTime);
+            }
+          }
         }
 
         animationFrameId = requestAnimationFrame(updateTimer);
@@ -99,9 +166,15 @@ export default function Timer({
     };
 
     if (isRunning) {
-      if (startTimeRef.current === 0) {
-        startTimeRef.current = Date.now() - (time * 1000);
+      if (targetTime === null) {
+        const now = Date.now();
+        if (mode === 'timer') {
+          onTargetTimeChange(now + (time * 1000));
+        } else {
+          onTargetTimeChange(now - (time * 1000));
+        }
       }
+      lastUpdateTime = Date.now();
       updateTimer();
     }
 
@@ -110,7 +183,7 @@ export default function Timer({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isRunning, time, onTimeUpdate]);
+  }, [isRunning, time, onTimeUpdate, mode, targetTime, onTargetTimeChange, playAlertSound, handleStop]);
 
   const formatTime = useCallback((totalSeconds: number) => {
     if (!Number.isFinite(totalSeconds)) {
@@ -133,34 +206,19 @@ export default function Timer({
   }, []);
 
   const getNextHourTime = useCallback(() => {
-    if (!isRunning || !startTimeRef.current) return null;
+    if (!isRunning || !targetTime) return null;
 
     const now = Date.now();
-    const elapsedMs = now - startTimeRef.current;
+    const elapsedMs = now - targetTime;
     const nextHourMs = Math.ceil(elapsedMs / (3600 * 1000)) * (3600 * 1000);
-    const nextHourTime = new Date(startTimeRef.current + nextHourMs);
+    const nextHourTime = new Date(targetTime + nextHourMs);
 
     return nextHourTime.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      second: '2-digit'
     });
-  }, [isRunning]);
-
-  const handleStart = () => {
-    const now = Date.now();
-    startTimeRef.current = now - (time * 1000);
-    setIsRunning(true);
-    if (onRunningChange) {
-      onRunningChange(true);
-    }
-  };
-
-  const handleStop = () => {
-    setIsRunning(false);
-    if (onRunningChange) {
-      onRunningChange(false);
-    }
-  };
+  }, [isRunning, targetTime]);
 
   const handleReset = () => {
     if (window.confirm('타이머를 초기화하시겠습니까?')) {
@@ -168,7 +226,7 @@ export default function Timer({
       if (onRunningChange) {
         onRunningChange(false);
       }
-      startTimeRef.current = 0;
+      onTargetTimeChange(null);
       setTime(0);
       onTimeUpdate(0);
     }
@@ -230,12 +288,31 @@ export default function Timer({
     }
   };
 
+  const handleModeToggle = () => {
+    if (!isRunning) {
+      const newMode = mode === 'stopwatch' ? 'timer' : 'stopwatch';
+      setMode(newMode);
+      if (onModeChange) {
+        onModeChange(newMode);
+      }
+      setTime(0);
+      onTimeUpdate(0);
+    }
+  };
+
   const { hours, minutes, seconds } = formatTime(time);
   const nextHourTime = getNextHourTime();
 
   return (
-    <div className="flex flex-col items-center gap-6">
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">타이머</h2>
+    <div className={`flex flex-col items-center gap-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md ${
+      isFlashing ? 'animate-flash' : ''
+    }`}>
+      <h2
+        className={`text-2xl font-semibold text-gray-900 dark:text-white ${!isRunning ? 'cursor-pointer' : 'cursor-default'}`}
+        onClick={handleModeToggle}
+      >
+        {mode === 'stopwatch' ? '스탑워치' : '타이머'}
+      </h2>
       <div
         className={`text-5xl font-mono font-bold text-gray-900 dark:text-white ${!isRunning ? 'cursor-pointer' : 'cursor-default'}`}
         onClick={handleTimeClick}
@@ -274,7 +351,7 @@ export default function Timer({
           <span className="text-6xl">{hours}:{minutes}:{seconds}</span>
         )}
       </div>
-      {isRunning && nextHourTime && (
+      {isRunning && nextHourTime && mode === 'stopwatch' && (
         <div className="text-sm text-gray-600 dark:text-gray-400">
           {parseInt(hours) + 1}시간 도달 예정: {nextHourTime}
         </div>

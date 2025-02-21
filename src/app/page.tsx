@@ -16,10 +16,19 @@ const STORAGE_KEY = {
   NOTE: 'maple-timer-note'
 };
 
+interface TimerState {
+  time: number;
+  isRunning: boolean;
+  targetTime: number | null;
+  mode: 'stopwatch' | 'timer';
+}
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
+  const [timerMode, setTimerMode] = useState<'stopwatch' | 'timer'>('stopwatch');
+  const [targetTime, setTargetTime] = useState<number | null>(null);
   const [records, setRecords] = useState<HuntingRecord[]>([]);
   const [currentStats, setCurrentStats] = useState<HuntingStats | null>(null);
   const [currentItems, setCurrentItems] = useState<Item[]>([]);
@@ -37,14 +46,33 @@ export default function Home() {
       // 타이머 상태 로드
       const savedTimerState = localStorage.getItem(STORAGE_KEY.TIMER);
       if (savedTimerState) {
-        const timerState = JSON.parse(savedTimerState);
-        setIsTimerRunning(timerState.isRunning);
-        if (timerState.isRunning && timerState.startTime) {
-          const now = Date.now();
-          const elapsedSeconds = Math.floor((now - timerState.startTime) / 1000);
-          setElapsedTime(elapsedSeconds);
-        } else {
-          setElapsedTime(timerState.time);
+        try {
+          const timerState: TimerState = JSON.parse(savedTimerState);
+          setIsTimerRunning(timerState.isRunning);
+          setTimerMode(timerState.mode);
+          setTargetTime(timerState.targetTime);
+
+          if (timerState.isRunning && timerState.targetTime) {
+            const now = Date.now();
+            if (timerState.mode === 'timer') {
+              const remainingTime = Math.max(0, Math.floor((timerState.targetTime - now) / 1000));
+              if (remainingTime <= 0) {
+                // 타이머가 이미 종료된 상태면 조용히 초기화
+                setIsTimerRunning(false);
+                setTargetTime(null);
+                setElapsedTime(0);
+              } else {
+                setElapsedTime(remainingTime);
+              }
+            } else {
+              const elapsedSeconds = Math.floor((now - timerState.targetTime) / 1000);
+              setElapsedTime(elapsedSeconds);
+            }
+          } else {
+            setElapsedTime(timerState.time);
+          }
+        } catch (error) {
+          console.error('Failed to parse timer state:', error);
         }
       }
 
@@ -69,6 +97,19 @@ export default function Home() {
       setIsLoading(false);
     }
   }, []);
+
+  // 타이머 상태 저장
+  useEffect(() => {
+    if (!isLoading) {
+      const timerState: TimerState = {
+        time: elapsedTime,
+        isRunning: isTimerRunning,
+        targetTime,
+        mode: timerMode
+      };
+      localStorage.setItem(STORAGE_KEY.TIMER, JSON.stringify(timerState));
+    }
+  }, [isLoading, elapsedTime, isTimerRunning, timerMode, targetTime]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -130,12 +171,16 @@ export default function Home() {
       <div className="container mx-auto max-w-7xl">
         <div className="grid grid-cols-1 md:grid-cols-[400px_1fr] gap-8">
           <div className="space-y-8">
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            <div className="bg-white dark:bg-gray-800">
               <Timer
                 onTimeUpdate={setElapsedTime}
                 initialTime={elapsedTime}
                 isRunning={isTimerRunning}
                 onRunningChange={setIsTimerRunning}
+                mode={timerMode}
+                onModeChange={setTimerMode}
+                targetTime={targetTime}
+                onTargetTimeChange={setTargetTime}
               />
             </div>
             <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
