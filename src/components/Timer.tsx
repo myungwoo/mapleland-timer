@@ -27,6 +27,8 @@ export default function Timer({
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const startTimeRef = useRef<number>(0);
   const isInitializedRef = useRef<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editValues, setEditValues] = useState({ hours: '00', minutes: '00', seconds: '00' });
 
   // 초기 상태 로드
   useEffect(() => {
@@ -172,14 +174,105 @@ export default function Timer({
     }
   };
 
+  const handleTimeClick = () => {
+    if (!isRunning) {
+      const { hours, minutes, seconds } = formatTime(time);
+      setEditValues({ hours, minutes, seconds });
+      setIsEditing(true);
+    }
+  };
+
+  const handleTimeInputChange = (field: 'hours' | 'minutes' | 'seconds', value: string) => {
+    let numValue = parseInt(value) || 0;
+
+    // 각 필드의 최대값 제한
+    if (field === 'hours') {
+      numValue = Math.min(Math.max(numValue, 0), 99);
+    } else {
+      numValue = Math.min(Math.max(numValue, 0), 59);
+    }
+
+    setEditValues(prev => ({
+      ...prev,
+      [field]: numValue.toString().padStart(2, '0')
+    }));
+  };
+
+  const handleTimeInputBlur = (e: React.FocusEvent) => {
+    // 다른 시간 입력 필드로 포커스가 이동하는 경우 blur 처리를 하지 않음
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (relatedTarget?.classList.contains('time-input')) {
+      return;
+    }
+
+    const totalSeconds =
+      parseInt(editValues.hours) * 3600 +
+      parseInt(editValues.minutes) * 60 +
+      parseInt(editValues.seconds);
+
+    setTime(totalSeconds);
+    onTimeUpdate(totalSeconds);
+    setIsEditing(false);
+  };
+
+  const handleTimeInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const totalSeconds =
+        parseInt(editValues.hours) * 3600 +
+        parseInt(editValues.minutes) * 60 +
+        parseInt(editValues.seconds);
+
+      setTime(totalSeconds);
+      onTimeUpdate(totalSeconds);
+      setIsEditing(false);
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
+  };
+
   const { hours, minutes, seconds } = formatTime(time);
   const nextHourTime = getNextHourTime();
 
   return (
     <div className="flex flex-col items-center gap-6">
       <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">타이머</h2>
-      <div className="text-5xl font-mono font-bold text-gray-900 dark:text-white">
-        {hours}:{minutes}:{seconds}
+      <div
+        className={`text-5xl font-mono font-bold text-gray-900 dark:text-white ${!isRunning ? 'cursor-pointer' : 'cursor-default'}`}
+        onClick={handleTimeClick}
+      >
+        {isEditing ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              value={editValues.hours}
+              onChange={(e) => handleTimeInputChange('hours', e.target.value)}
+              onBlur={handleTimeInputBlur}
+              onKeyDown={handleTimeInputKeyDown}
+              className="time-input w-[4ch] px-2 text-4xl bg-transparent text-center focus:outline-none focus:border-b-2 focus:border-blue-500"
+              autoFocus
+            />
+            <span className="text-4xl">:</span>
+            <input
+              type="text"
+              value={editValues.minutes}
+              onChange={(e) => handleTimeInputChange('minutes', e.target.value)}
+              onBlur={handleTimeInputBlur}
+              onKeyDown={handleTimeInputKeyDown}
+              className="time-input w-[4ch] px-2 text-4xl bg-transparent text-center focus:outline-none focus:border-b-2 focus:border-blue-500"
+            />
+            <span className="text-4xl">:</span>
+            <input
+              type="text"
+              value={editValues.seconds}
+              onChange={(e) => handleTimeInputChange('seconds', e.target.value)}
+              onBlur={handleTimeInputBlur}
+              onKeyDown={handleTimeInputKeyDown}
+              className="time-input w-[4ch] px-2 text-4xl bg-transparent text-center focus:outline-none focus:border-b-2 focus:border-blue-500"
+            />
+          </div>
+        ) : (
+          <span className="text-6xl">{hours}:{minutes}:{seconds}</span>
+        )}
       </div>
       {isRunning && nextHourTime && (
         <div className="text-sm text-gray-600 dark:text-gray-400">
