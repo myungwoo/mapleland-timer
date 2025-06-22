@@ -146,8 +146,8 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
     }));
   };
 
-  const handleReset = () => {
-    if (window.confirm('모든 데이터를 초기화하시겠습니까?')) {
+  const handleFullClear = () => {
+    if (window.confirm('모든 데이터를 전체 지우시겠습니까?')) {
       setStats({
         location: '',
         startLevel: '',
@@ -158,6 +158,24 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
         endMeso: ''
       });
       setItems([]);
+      setNote('');
+    }
+  };
+
+  const handlePartialClear = () => {
+    if (window.confirm('경험치, 메소, 아이템 개수를 지우시겠습니까?\n(사냥터와 레벨은 유지됩니다)')) {
+      setStats(prev => ({
+        ...prev,
+        startExp: '',
+        startMeso: '',
+        endExp: '',
+        endMeso: ''
+      }));
+      setItems(prev => prev.map(item => ({
+        ...item,
+        startCount: '',
+        endCount: ''
+      })));
       setNote('');
     }
   };
@@ -277,12 +295,20 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">사냥 입력</h2>
-        <button
-          onClick={handleReset}
-          className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-        >
-          초기화
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handlePartialClear}
+            className="px-4 py-2 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+          >
+            일부 지우기
+          </button>
+          <button
+            onClick={handleFullClear}
+            className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          >
+            전체 지우기
+          </button>
+        </div>
       </div>
 
       <div>
