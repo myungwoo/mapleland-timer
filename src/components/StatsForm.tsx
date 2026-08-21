@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import ItemManager, { Item } from './ItemManager';
 import { HuntingStats, HuntingRecord } from '@/types/hunting';
+import { STORAGE_KEY } from '@/constants/storage';
 
 // 레벨별 필요 경험치 맵
 const LEVEL_EXP_MAP: { [key: number]: number } = {
@@ -51,20 +52,13 @@ interface StatsFormProps {
   initialNote?: string;
 }
 
-// localStorage 키
-const STORAGE_KEYS = {
-  STATS: 'maple-timer-stats',
-  ITEMS: 'maple-timer-items',
-  NOTE: 'maple-timer-note'
-} as const;
-
 export default function StatsForm({ elapsedTime, onSave, initialStats = null, initialItems = [], initialNote = '' }: StatsFormProps) {
   const [stats, setStats] = useState<HuntingStats>(() => {
     if (initialStats) {
       return initialStats;
     }
     if (typeof window !== 'undefined') {
-      const savedStats = localStorage.getItem(STORAGE_KEYS.STATS);
+      const savedStats = localStorage.getItem(STORAGE_KEY.STATS);
       return savedStats ? JSON.parse(savedStats) : {
         location: '',
         startLevel: '',
@@ -91,7 +85,7 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
       return initialItems;
     }
     if (typeof window !== 'undefined') {
-      const savedItems = localStorage.getItem(STORAGE_KEYS.ITEMS);
+      const savedItems = localStorage.getItem(STORAGE_KEY.ITEMS);
       return savedItems ? JSON.parse(savedItems) : [];
     }
     return [];
@@ -102,7 +96,7 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
       return initialNote;
     }
     if (typeof window !== 'undefined') {
-      const savedNote = localStorage.getItem(STORAGE_KEYS.NOTE);
+      const savedNote = localStorage.getItem(STORAGE_KEY.NOTE);
       return savedNote || '';
     }
     return '';
@@ -127,15 +121,15 @@ export default function StatsForm({ elapsedTime, onSave, initialStats = null, in
   }, [initialNote]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
+    localStorage.setItem(STORAGE_KEY.STATS, JSON.stringify(stats));
   }, [stats]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
+    localStorage.setItem(STORAGE_KEY.ITEMS, JSON.stringify(items));
   }, [items]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.NOTE, note);
+    localStorage.setItem(STORAGE_KEY.NOTE, note);
   }, [note]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

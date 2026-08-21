@@ -7,14 +7,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { useState, useEffect } from 'react';
 import { HuntingRecord, HuntingStats } from '@/types/hunting';
 import { Item } from '@/components/ItemManager';
-
-const STORAGE_KEY = {
-  RECORDS: 'maple-timer-records',
-  STATS: 'maple-timer-stats',
-  ITEMS: 'maple-timer-items',
-  TIMER: 'maple-timer-state',
-  NOTE: 'maple-timer-note'
-};
+import { STORAGE_KEY, migrateLegacyStorageKeys } from '@/constants/storage';
 
 interface TimerState {
   time: number;
@@ -37,6 +30,9 @@ export default function Home() {
   // 모든 데이터 로드
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // 접두어 없던 예전 키에 남은 기록을 먼저 옮겨 온다.
+      migrateLegacyStorageKeys();
+
       // 기록 데이터 로드
       const savedRecords = localStorage.getItem(STORAGE_KEY.RECORDS);
       if (savedRecords) {
