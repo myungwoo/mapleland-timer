@@ -1,8 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  LEGACY_THEME_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+} from '@/constants/storage';
 
 type Theme = 'light' | 'dark' | 'system';
+
+/**
+ * 저장된 테마를 읽는다.
+ *
+ * 이 키는 사이트의 다른 유틸과 공유하므로, 아는 값만 받아들이고 나머지는 시스템
+ * 설정으로 본다. 접두어 없던 예전 키도 한 번 봐준다.
+ */
+const readStoredTheme = (): Theme => {
+  try {
+    const stored =
+      localStorage.getItem(THEME_STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
+    return stored === 'light' || stored === 'dark' || stored === 'system'
+      ? stored
+      : 'system';
+  } catch {
+    return 'system';
+  }
+};
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('system');
@@ -24,9 +47,8 @@ export default function ThemeToggle() {
   // 초기 테마 설정
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem('theme') as Theme || 'system';
-      setTheme(savedTheme);
-      updateTheme(savedTheme);
+      setTheme(readStoredTheme());
+      updateTheme(readStoredTheme());
     }
   }, []);
 
@@ -36,7 +58,11 @@ export default function ThemeToggle() {
       (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
     document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('theme', newTheme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } catch {
+      // 시크릿 모드처럼 localStorage 가 막힌 환경에서는 이번 세션만 적용된다.
+    }
   };
 
   const toggleTheme = () => {
