@@ -4,7 +4,7 @@ import { ReactNode } from 'react';
 import Button from './ui/Button';
 import Card, { CardHeader } from './ui/Card';
 import { HuntingRecord, HuntingStats } from '@/types/hunting';
-import { formatClock, rawMesoPerFiveMin } from '@/lib/hunting';
+import { formatClock, rawMesoPerMinute } from '@/lib/hunting';
 
 interface ResultsPanelProps {
   stats: HuntingStats;
@@ -60,7 +60,7 @@ function StatTile({ label, value, hint, tone = 'default' }: StatTileProps) {
  * 입력한 값이 어떻게 정산되는지 실시간으로 보여 주는 패널.
  *
  * 예전에는 중첩된 `<ul>` 안에 "총 획득: 123" 같은 줄이 열 몇 개 이어져 있어서, 정작
- * 중요한 5분당 수익을 찾으려면 목록 전체를 읽어야 했다. 자주 보는 수치를 타일로 올리고
+ * 중요한 분당 수익을 찾으려면 목록 전체를 읽어야 했다. 자주 보는 수치를 타일로 올리고
  * 나머지는 아래로 내렸다.
  */
 export default function ResultsPanel({ stats, results, elapsedTime, onSave }: ResultsPanelProps) {
@@ -84,7 +84,7 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
                 진행 시간 <span className="font-mono text-muted">{formatDuration(elapsedTime)}</span> 기준
               </>
             ) : (
-              '진행 시간이 0이라 5분당 수치는 계산되지 않습니다.'
+              '진행 시간이 0이라 분당 수치는 계산되지 않습니다.'
             )
           }
         />
@@ -128,8 +128,8 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
             value={results.expGained.toLocaleString()}
           />
           <StatTile
-            label="5분당 경험치"
-            value={results.expPerFiveMin.toLocaleString()}
+            label="1분당 경험치"
+            value={results.expPerMinute.toLocaleString()}
             tone="accent"
           />
           <StatTile
@@ -138,8 +138,8 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
             hint={netUnit ? `${netUnit} 메소` : '메소'}
           />
           <StatTile
-            label="5분당 순수익"
-            value={results.mesoPerFiveMin.toLocaleString()}
+            label="1분당 순수익"
+            value={results.mesoPerMinute.toLocaleString()}
             hint="메소"
             tone="gold"
           />
@@ -165,9 +165,9 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
             </span>
           </div>
           <div className="flex items-center justify-between gap-2 text-subtle">
-            <span>순수 메소 5분당</span>
+            <span>순수 메소 1분당</span>
             <span className="font-mono">
-              {rawMesoPerFiveMin(results.rawMesoGained, elapsedTime).toLocaleString()}
+              {rawMesoPerMinute(results.rawMesoGained, elapsedTime).toLocaleString()}
             </span>
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
                       {item.diff.toLocaleString()}개
                     </span>
                     <span className="ml-2 font-mono text-subtle">
-                      5분당 {Math.abs(item.perFiveMin).toLocaleString()}
+                      1분당 {Math.abs(item.perMinute).toLocaleString()}
                     </span>
                     <span className="block font-mono text-subtle">
                       {item.value.toLocaleString()} 메소

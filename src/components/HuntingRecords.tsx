@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { HuntingRecord } from '@/types/hunting';
 import Button, { IconButton } from './ui/Button';
 import { useDialog } from './ui/Dialog';
+import { normalizeRecords } from '@/lib/hunting';
 
 interface HuntingRecordsProps {
   records: HuntingRecord[];
@@ -55,15 +56,15 @@ ${record.note ? `\n메모: ${record.note}` : ''}
 
 경험치
 - 총 획득: ${record.results.expGained.toLocaleString()}
-- 5분당: ${record.results.expPerFiveMin.toLocaleString()}
+- 1분당: ${record.results.expPerMinute.toLocaleString()}
 
 메소
 - 순수 획득: ${record.results.rawMesoGained.toLocaleString()} 메소
 - 총 순수익: ${record.results.netMesoGained.toLocaleString()} 메소
-- 5분당: ${record.results.mesoPerFiveMin.toLocaleString()} 메소
+- 1분당: ${record.results.mesoPerMinute.toLocaleString()} 메소
 
 ${record.results.itemStats.length > 0 ? `아이템 변동:
-${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (5분당 ${item.perFiveMin.toFixed(2)}개)
+${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (1분당 ${item.perMinute.toFixed(2)}개)
   가치: ${item.value.toLocaleString()} 메소`).join('\n')}` : ''}`;
 
     try {
@@ -98,7 +99,8 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
       try {
         const parsed = JSON.parse(e.target?.result as string);
         if (!Array.isArray(parsed)) throw new Error('기록 배열이 아닙니다.');
-        importedRecords = parsed;
+        // 예전에 내보낸 파일은 5분당 값을 담고 있다.
+        importedRecords = normalizeRecords(parsed);
       } catch (error) {
         console.error('Failed to parse records:', error);
         await dialog.alert({
@@ -232,15 +234,15 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
 
                     <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                       <div className="flex items-baseline justify-between gap-2">
-                        <dt className="text-subtle">EXP/5분</dt>
+                        <dt className="text-subtle">EXP/분</dt>
                         <dd className="font-mono font-medium text-accent">
-                          {record.results.expPerFiveMin.toLocaleString()}
+                          {record.results.expPerMinute.toLocaleString()}
                         </dd>
                       </div>
                       <div className="flex items-baseline justify-between gap-2">
-                        <dt className="text-subtle">수익/5분</dt>
+                        <dt className="text-subtle">수익/분</dt>
                         <dd className="font-mono font-medium text-gold">
-                          {record.results.mesoPerFiveMin.toLocaleString()}
+                          {record.results.mesoPerMinute.toLocaleString()}
                         </dd>
                       </div>
                     </dl>
@@ -331,8 +333,8 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                         <span className="font-mono text-gold">{record.results.netMesoGained.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <span className="text-subtle">수익/5분</span>
-                        <span className="font-mono text-gold">{record.results.mesoPerFiveMin.toLocaleString()}</span>
+                        <span className="text-subtle">수익/분</span>
+                        <span className="font-mono text-gold">{record.results.mesoPerMinute.toLocaleString()}</span>
                       </div>
                     </div>
 

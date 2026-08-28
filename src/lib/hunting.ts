@@ -57,18 +57,22 @@ export const calculateExpPercentage = (exp: number, level: number) => {
   return ((exp / requiredExp) * 100).toFixed(2);
 };
 
+/** 소수 둘째 자리까지. 개수는 분당으로 보면 소수가 되는 일이 잦다. */
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
 const calculateItemStats = (items: Item[], minutesElapsed: number) =>
   items.map(item => {
     const startCount = parseInt(item.startCount) || 0;
     const endCount = parseInt(item.endCount) || 0;
     const price = parseInt(item.price) || 0;
     const diff = endCount - startCount;
-    const perFiveMin = minutesElapsed > 0 ? (diff / minutesElapsed) * 5 : 0;
+    const perMinute = minutesElapsed > 0 ? diff / minutesElapsed : 0;
 
     return {
       name: item.name,
       diff,
-      perFiveMin: Math.round(perFiveMin * 100) / 100,
+      perMinute: round2(perMinute),
+      perFiveMin: round2(perMinute * 5),
       value: diff * price,
     };
   });
@@ -109,32 +113,68 @@ export const calculateResults = (
   }
 
   const minutesElapsed = elapsedTime / 60;
-  const expPerFiveMin = minutesElapsed > 0 ? (totalExpGained / minutesElapsed) * 5 : 0;
+  const expPerMinute = minutesElapsed > 0 ? totalExpGained / minutesElapsed : 0;
 
   const rawMesoGained = endMesoNum - startMesoNum;
   const itemStats = calculateItemStats(items, minutesElapsed);
   const itemValueChange = itemStats.reduce((sum, item) => sum + item.value, 0);
   const netMesoGained = rawMesoGained + itemValueChange;
-  const mesoPerFiveMin = minutesElapsed > 0 ? (netMesoGained / minutesElapsed) * 5 : 0;
+  const mesoPerMinute = minutesElapsed > 0 ? netMesoGained / minutesElapsed : 0;
 
   return {
     levelDiff,
     startExpPercentage: calculateExpPercentage(startExpNum, startLevelNum),
     endExpPercentage: calculateExpPercentage(endExpNum, endLevelNum),
     expGained: totalExpGained,
-    expPerFiveMin: Math.round(expPerFiveMin),
+    expPerMinute: Math.round(expPerMinute),
     rawMesoGained,
     itemStats,
     netMesoGained,
-    mesoPerFiveMin: Math.round(mesoPerFiveMin),
+    mesoPerMinute: Math.round(mesoPerMinute),
+
+    // 되돌린 배포가 읽을 수 있게 5분당 값도 같이 남긴다. types/hunting.ts 참고.
+    expPerFiveMin: Math.round(expPerMinute * 5),
+    mesoPerFiveMin: Math.round(mesoPerMinute * 5),
   };
 };
 
-/** 순수 메소만 따진 5분당 수익(아이템 가치 제외). */
-export const rawMesoPerFiveMin = (rawMesoGained: number, elapsedTime: number) => {
+/** 순수 메소만 따진 분당 수익(아이템 가치 제외). */
+export const rawMesoPerMinute = (rawMesoGained: number, elapsedTime: number) => {
   const minutesElapsed = elapsedTime / 60;
-  return minutesElapsed > 0 ? Math.round((rawMesoGained / minutesElapsed) * 5) : 0;
+  return minutesElapsed > 0 ? Math.round(rawMesoGained / minutesElapsed) : 0;
 };
+
+/**
+ * 5분당으로 저장된 예전 기록을 분당으로 맞춘다.
+ *
+ * 화면은 이제 분당만 읽는다. 예전 기록을 그대로 두면 5분당 값에 "1분당" 딱지가 붙어
+ * 다섯 배로 부풀어 보인다. 저장된 값을 5 로 나눌 뿐 다시 계산하지는 않는다 — 그때 화면에
+ * 보였던 수치를 그대로 옮겨야 지난 기록의 뜻이 바뀌지 않는다.
+ *
+ * 이미 분당 값이 있으면 그대로 둔다. 여러 번 돌려도 결과가 같다.
+ */
+export const normalizeRecords = (records: HuntingRecord[]): HuntingRecord[] =>
+  records.map(record => {
+    const results = record.results;
+    if (!results || typeof results.expPerMinute === 'number') return record;
+
+    const fromFiveMin = (value: number | undefined) =>
+      typeof value === 'number' ? Math.round(value / 5) : 0;
+
+    return {
+      ...record,
+      results: {
+        ...results,
+        expPerMinute: fromFiveMin(results.expPerFiveMin),
+        mesoPerMinute: fromFiveMin(results.mesoPerFiveMin),
+        itemStats: (results.itemStats ?? []).map(item => ({
+          ...item,
+          perMinute:
+            typeof item.perMinute === 'number' ? item.perMinute : round2((item.perFiveMin ?? 0) / 5),
+        })),
+      },
+    };
+  });
 
 /** 초 단위 시간을 시:분:초 두 자리로. */
 export const formatClock = (totalSeconds: number) => {
