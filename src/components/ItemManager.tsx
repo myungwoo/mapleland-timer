@@ -19,6 +19,8 @@ interface ItemManagerProps {
 }
 
 const CELL = 'field field-sunken h-9 px-2.5 py-0 text-sm';
+/** 숫자 칸은 오른쪽에 붙인다. 자릿수가 맞아야 개수와 가격이 한눈에 비교된다. */
+const NUMBER_CELL = `${CELL} text-right font-mono`;
 
 export default function ItemManager({ title, items, onItemsChange }: ItemManagerProps) {
   const addNewItem = () => {
@@ -138,7 +140,7 @@ export default function ItemManager({ title, items, onItemsChange }: ItemManager
                                 onValueChange={(next) => updateItem(item.id, 'startCount', next)}
                                 placeholder="0"
                                 aria-label="시작 개수"
-                                className={`${CELL} font-mono`}
+                                className={NUMBER_CELL}
                               />
                             </label>
                             <label className="sm:contents">
@@ -148,7 +150,7 @@ export default function ItemManager({ title, items, onItemsChange }: ItemManager
                                 onValueChange={(next) => updateItem(item.id, 'endCount', next)}
                                 placeholder="0"
                                 aria-label="종료 개수"
-                                className={`${CELL} font-mono`}
+                                className={NUMBER_CELL}
                               />
                             </label>
                             <label className="sm:contents">
@@ -158,7 +160,7 @@ export default function ItemManager({ title, items, onItemsChange }: ItemManager
                                 onValueChange={(next) => updateItem(item.id, 'price', next)}
                                 placeholder="0"
                                 aria-label="개당 가격"
-                                className={`${CELL} font-mono`}
+                                className={NUMBER_CELL}
                               />
                             </label>
                           </div>

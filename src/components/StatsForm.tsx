@@ -43,7 +43,8 @@ function MetricRow({
   endName: keyof HuntingStats;
   grouped?: boolean;
 }) {
-  const inputClass = 'field field-sunken font-mono';
+  // 숫자는 오른쪽에 붙여야 자릿수가 맞아 시작/종료의 크기 차이가 눈에 들어온다.
+  const inputClass = 'field field-sunken text-right font-mono';
 
   return (
     <div>
