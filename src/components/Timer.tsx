@@ -23,6 +23,15 @@ interface TimerProps {
   onAcknowledgeFinish: () => void;
 }
 
+/**
+ * 알림음을 몇 번 울릴지, 그리고 사이 간격.
+ *
+ * 소리가 2 초쯤이라 붙여서 세 번 울리면 한 번의 긴 소리로 들린다. 짧게 끊어야 "또 울린다"
+ * 로 읽힌다. 확인을 누르면 도중이라도 멈춘다.
+ */
+const ALERT_REPEAT = 3;
+const ALERT_GAP_MS = 400;
+
 /** 알림음 설정. 모르는 값이면 켜 둔 것으로 본다. */
 const readAlertSound = () => {
   try {
@@ -52,6 +61,10 @@ export default function Timer({
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editValues, setEditValues] = useState({ hours: '00', minutes: '00', seconds: '00' });
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const repeatsLeftRef = useRef<number>(0);
+  const repeatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 어느 종료에 대해 이미 알렸는지. 같은 종료로 두 번 울리는 걸 막는다.
+  const alertedForRef = useRef<number | null | undefined>(undefined);
   const [isAudioLoaded, setIsAudioLoaded] = useState<boolean>(false);
   const [isFlashing, setIsFlashing] = useState<boolean>(false);
   const [alertSound, setAlertSound] = useState<boolean>(true);
@@ -62,16 +75,6 @@ export default function Timer({
     setAlertSound(readAlertSound());
   }, []);
 
-  const toggleAlertSound = () => {
-    const next = !alertSound;
-    setAlertSound(next);
-    try {
-      localStorage.setItem(STORAGE_KEY.ALERT_SOUND, next ? 'on' : 'off');
-    } catch {
-      // 시크릿 모드처럼 localStorage 가 막힌 환경에서는 이번 세션만 적용된다.
-    }
-  };
-
   const startFlashing = useCallback(() => {
     setIsFlashing(true);
     setTimeout(() => setIsFlashing(false), 1500); // 3번 깜빡임 (0.5초 * 3)
@@ -79,13 +82,46 @@ export default function Timer({
 
   // 알림음 초기화
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      audioRef.current = new Audio('./alert.mp3');
-      audioRef.current.addEventListener('canplaythrough', () => {
-        setIsAudioLoaded(true);
-      });
-      audioRef.current.load();
+    if (typeof window === 'undefined') return;
+
+    const audio = new Audio('./alert.mp3');
+    audioRef.current = audio;
+
+    const handleLoaded = () => setIsAudioLoaded(true);
+    // 남은 횟수만큼 다시 튼다. loop 를 쓰면 ended 가 오지 않아 횟수를 셀 수 없다.
+    const handleEnded = () => {
+      if (repeatsLeftRef.current <= 0) return;
+      repeatsLeftRef.current -= 1;
+      repeatTimerRef.current = setTimeout(() => {
+        repeatTimerRef.current = null;
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      }, ALERT_GAP_MS);
+    };
+
+    audio.addEventListener('canplaythrough', handleLoaded);
+    audio.addEventListener('ended', handleEnded);
+    audio.load();
+
+    return () => {
+      audio.removeEventListener('canplaythrough', handleLoaded);
+      audio.removeEventListener('ended', handleEnded);
+      if (repeatTimerRef.current) clearTimeout(repeatTimerRef.current);
+      audio.pause();
+    };
+  }, []);
+
+  /** 울리는 중이라도 즉시 멈춘다. 남은 횟수와 예약된 재생도 함께 취소한다. */
+  const stopAlertSound = useCallback(() => {
+    repeatsLeftRef.current = 0;
+    if (repeatTimerRef.current) {
+      clearTimeout(repeatTimerRef.current);
+      repeatTimerRef.current = null;
     }
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
   }, []);
 
   /**
@@ -95,11 +131,36 @@ export default function Timer({
    * 에게는 아예 보이지 않는다), 소리는 브라우저가 막거나 볼륨이 꺼져 있을 수 있다. 그래서
    * 확인을 누를 때까지 남는 배너가 실제로 놓치지 않게 해 주는 부분이다.
    */
+  const toggleAlertSound = () => {
+    const next = !alertSound;
+    // 울리는 중에 껐다면 지금 소리도 멈춰야 말이 된다.
+    if (!next) stopAlertSound();
+    setAlertSound(next);
+    try {
+      localStorage.setItem(STORAGE_KEY.ALERT_SOUND, next ? 'on' : 'off');
+    } catch {
+      // 시크릿 모드처럼 localStorage 가 막힌 환경에서는 이번 세션만 적용된다.
+    }
+  };
+
+  /** 끝난 걸 확인했다. 울리는 중이면 멈추고 배너를 거둔다. */
+  const acknowledgeFinish = useCallback(() => {
+    stopAlertSound();
+    onAcknowledgeFinish();
+  }, [stopAlertSound, onAcknowledgeFinish]);
+
   const handleFinish = useCallback(() => {
+    // 화면을 그리는 rAF 와 뒤에서 도는 setTimeout 이 거의 같은 순간에 0 을 볼 수 있다.
+    // 한쪽만 남기지 않으면 알림음이 겹쳐 울린다.
+    if (alertedForRef.current === targetTime) return;
+    alertedForRef.current = targetTime;
+
     startFlashing();
     onFinished();
 
     if (alertSound && audioRef.current && isAudioLoaded) {
+      repeatsLeftRef.current = ALERT_REPEAT - 1;
+      audioRef.current.currentTime = 0;
       audioRef.current.play().catch(error => {
         if (error.name !== 'NotAllowedError') {
           console.error('Failed to play alert sound:', error);
@@ -107,7 +168,7 @@ export default function Timer({
         // 막혀도 배너와 탭 제목이 남으니 조용히 넘어간다.
       });
     }
-  }, [startFlashing, onFinished, alertSound, isAudioLoaded]);
+  }, [targetTime, startFlashing, onFinished, alertSound, isAudioLoaded]);
 
   /**
    * 시작을 누른 김에 알림음을 한 번 재생해 잠금을 푼다.
@@ -136,8 +197,9 @@ export default function Timer({
   }, []);
 
   const handleStart = useCallback(() => {
+    // 멈추는 게 먼저다. 잠금을 푸는 재생을 곧바로 멈춰 버리면 정작 나중에 소리가 안 난다.
+    acknowledgeFinish();
     primeAudio();
-    onAcknowledgeFinish();
     const now = Date.now();
     if (mode === 'timer') {
       onTargetTimeChange(now + (time * 1000)); // 타이머 모드에서는 목표 시간을 설정
@@ -148,7 +210,7 @@ export default function Timer({
     if (onRunningChange) {
       onRunningChange(true);
     }
-  }, [mode, time, onTargetTimeChange, onRunningChange, primeAudio, onAcknowledgeFinish]);
+  }, [mode, time, onTargetTimeChange, onRunningChange, acknowledgeFinish, primeAudio]);
 
   const handleStop = useCallback(() => {
     setIsRunning(false);
@@ -189,6 +251,8 @@ export default function Timer({
     let animationFrameId: number;
     let lastUpdateTime = Date.now();
 
+    // 남은 시간은 올림으로 센다. 내림이면 1 초가 채 안 남았을 때 이미 0 으로 보여서 타이머가
+    // 1 초 일찍 끝난다 — 뒤에서 도는 setTimeout 은 정확한 시각에 울리므로 둘이 어긋난다.
     const updateTimer = () => {
       if (isRunning && targetTime !== null) {
         const now = Date.now();
@@ -198,7 +262,7 @@ export default function Timer({
         // 브라우저 탭이 비활성화되어 있었을 경우를 대비해 시간 차이가 너무 크면 보정
         if (timeDiff > 1000) {
           if (mode === 'timer') {
-            const remainingTime = Math.max(0, Math.floor((targetTime - now) / 1000));
+            const remainingTime = Math.max(0, Math.ceil((targetTime - now) / 1000));
             setTime(remainingTime);
             onTimeUpdate(remainingTime);
 
@@ -214,7 +278,7 @@ export default function Timer({
           }
         } else {
           if (mode === 'timer') {
-            const remainingTime = Math.max(0, Math.floor((targetTime - now) / 1000));
+            const remainingTime = Math.max(0, Math.ceil((targetTime - now) / 1000));
             if (remainingTime !== time) {
               setTime(remainingTime);
               onTimeUpdate(remainingTime);
@@ -306,6 +370,7 @@ export default function Timer({
     });
     if (!confirmed) return;
 
+    acknowledgeFinish();
     setIsRunning(false);
     if (onRunningChange) {
       onRunningChange(false);
@@ -456,7 +521,7 @@ export default function Timer({
                 종료
               </p>
             </div>
-            <Button size="sm" variant="neutral" onClick={onAcknowledgeFinish}>
+            <Button size="sm" variant="neutral" onClick={acknowledgeFinish}>
               확인
             </Button>
           </div>

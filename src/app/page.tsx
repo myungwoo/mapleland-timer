@@ -73,7 +73,7 @@ export default function Home() {
           if (timerState.isRunning && timerState.targetTime) {
             const now = Date.now();
             if (timerState.mode === 'timer') {
-              const remainingTime = Math.max(0, Math.floor((timerState.targetTime - now) / 1000));
+              const remainingTime = Math.max(0, Math.ceil((timerState.targetTime - now) / 1000));
               if (remainingTime <= 0) {
                 // 자리를 비운 사이 끝났다. 조용히 지우지 않고 끝난 시각을 남겨 알린다.
                 setIsTimerRunning(false);
