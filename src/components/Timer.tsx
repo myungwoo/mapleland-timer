@@ -1,6 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Button from './ui/Button';
+import Card from './ui/Card';
+import SegmentedControl from './ui/SegmentedControl';
+import { useDialog } from './ui/Dialog';
+import { formatClock } from '@/lib/hunting';
 
 interface TimerProps {
   onTimeUpdate: (time: number) => void;
@@ -32,6 +37,7 @@ export default function Timer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isAudioLoaded, setIsAudioLoaded] = useState<boolean>(false);
   const [isFlashing, setIsFlashing] = useState<boolean>(false);
+  const dialog = useDialog();
 
   const startFlashing = useCallback(() => {
     setIsFlashing(true);
@@ -185,26 +191,6 @@ export default function Timer({
     };
   }, [isRunning, time, onTimeUpdate, mode, targetTime, onTargetTimeChange, playAlertSound, handleStop]);
 
-  const formatTime = useCallback((totalSeconds: number) => {
-    if (!Number.isFinite(totalSeconds)) {
-      return {
-        hours: '00',
-        minutes: '00',
-        seconds: '00'
-      };
-    }
-
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    return {
-      hours: hours.toString().padStart(2, '0'),
-      minutes: minutes.toString().padStart(2, '0'),
-      seconds: seconds.toString().padStart(2, '0')
-    };
-  }, []);
-
   const getNextHourTime = useCallback(() => {
     if (!isRunning || !targetTime) return null;
 
@@ -220,21 +206,28 @@ export default function Timer({
     });
   }, [isRunning, targetTime]);
 
-  const handleReset = () => {
-    if (window.confirm('타이머를 초기화하시겠습니까?')) {
-      setIsRunning(false);
-      if (onRunningChange) {
-        onRunningChange(false);
-      }
-      onTargetTimeChange(null);
-      setTime(0);
-      onTimeUpdate(0);
+  const handleReset = async () => {
+    const shown = formatClock(time);
+    const confirmed = await dialog.confirm({
+      title: '타이머를 초기화할까요?',
+      description: `지금 표시된 ${shown.hours}:${shown.minutes}:${shown.seconds} 가 00:00:00 이 됩니다.`,
+      confirmLabel: '초기화',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    setIsRunning(false);
+    if (onRunningChange) {
+      onRunningChange(false);
     }
+    onTargetTimeChange(null);
+    setTime(0);
+    onTimeUpdate(0);
   };
 
-  const handleTimeClick = () => {
+  const startEditing = () => {
     if (!isRunning) {
-      const { hours, minutes, seconds } = formatTime(time);
+      const { hours, minutes, seconds } = formatClock(time);
       setEditValues({ hours, minutes, seconds });
       setIsEditing(true);
     }
@@ -256,13 +249,7 @@ export default function Timer({
     }));
   };
 
-  const handleTimeInputBlur = (e: React.FocusEvent) => {
-    // 다른 시간 입력 필드로 포커스가 이동하는 경우 blur 처리를 하지 않음
-    const relatedTarget = e.relatedTarget as HTMLElement;
-    if (relatedTarget?.classList.contains('time-input')) {
-      return;
-    }
-
+  const commitEdit = () => {
     const totalSeconds =
       parseInt(editValues.hours) * 3600 +
       parseInt(editValues.minutes) * 60 +
@@ -273,24 +260,25 @@ export default function Timer({
     setIsEditing(false);
   };
 
+  const handleTimeInputBlur = (e: React.FocusEvent) => {
+    // 다른 시간 입력 필드로 포커스가 이동하는 경우 blur 처리를 하지 않음
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (relatedTarget?.classList.contains('time-input')) {
+      return;
+    }
+    commitEdit();
+  };
+
   const handleTimeInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      const totalSeconds =
-        parseInt(editValues.hours) * 3600 +
-        parseInt(editValues.minutes) * 60 +
-        parseInt(editValues.seconds);
-
-      setTime(totalSeconds);
-      onTimeUpdate(totalSeconds);
-      setIsEditing(false);
+      commitEdit();
     } else if (e.key === 'Escape') {
       setIsEditing(false);
     }
   };
 
-  const handleModeToggle = () => {
+  const handleModeChange = (newMode: 'stopwatch' | 'timer') => {
     if (!isRunning) {
-      const newMode = mode === 'stopwatch' ? 'timer' : 'stopwatch';
       setMode(newMode);
       if (onModeChange) {
         onModeChange(newMode);
@@ -300,80 +288,121 @@ export default function Timer({
     }
   };
 
-  const { hours, minutes, seconds } = formatTime(time);
+  const { hours, minutes, seconds } = formatClock(time);
   const nextHourTime = getNextHourTime();
 
+  const editInputClass =
+    'time-input w-[2.4ch] rounded-md bg-transparent p-0 text-center font-mono text-4xl font-semibold ' +
+    'text-text tabular-nums border-0 focus:outline-none focus:ring-0 sm:w-[2.6ch] sm:text-5xl';
+
   return (
-    <div className={`flex flex-col items-center gap-6 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md ${
-      isFlashing ? 'animate-flash' : ''
-    }`}>
-      <h2
-        className={`text-2xl font-semibold text-gray-900 dark:text-white ${!isRunning ? 'cursor-pointer' : 'cursor-default'}`}
-        onClick={handleModeToggle}
-      >
-        {mode === 'stopwatch' ? '스탑워치' : '타이머'}
-      </h2>
-      <div
-        className={`text-5xl font-mono font-bold text-gray-900 dark:text-white ${!isRunning ? 'cursor-pointer' : 'cursor-default'}`}
-        onClick={handleTimeClick}
-      >
+    <Card className={isFlashing ? 'animate-flash' : ''}>
+      <div className="flex flex-col items-center gap-5">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+          <SegmentedControl
+            aria-label="타이머 모드"
+            value={mode}
+            onChange={handleModeChange}
+            disabled={isRunning}
+            options={[
+              { value: 'stopwatch', label: '스탑워치' },
+              { value: 'timer', label: '타이머' },
+            ]}
+          />
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+              isRunning ? 'text-success' : 'text-subtle'
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isRunning ? 'animate-pulse bg-success' : 'bg-border-strong'
+              }`}
+              aria-hidden="true"
+            />
+            {isRunning ? '측정 중' : '멈춤'}
+          </span>
+        </div>
+
         {isEditing ? (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 py-2">
             <input
               type="text"
+              inputMode="numeric"
+              aria-label="시"
               value={editValues.hours}
               onChange={(e) => handleTimeInputChange('hours', e.target.value)}
               onBlur={handleTimeInputBlur}
               onKeyDown={handleTimeInputKeyDown}
-              className="time-input w-[4ch] px-2 text-4xl bg-transparent text-center focus:outline-none focus:border-b-2 focus:border-blue-500"
+              className={editInputClass}
               autoFocus
             />
-            <span className="text-4xl">:</span>
+            <span className="font-mono text-4xl font-semibold text-subtle sm:text-5xl">:</span>
             <input
               type="text"
+              inputMode="numeric"
+              aria-label="분"
               value={editValues.minutes}
               onChange={(e) => handleTimeInputChange('minutes', e.target.value)}
               onBlur={handleTimeInputBlur}
               onKeyDown={handleTimeInputKeyDown}
-              className="time-input w-[4ch] px-2 text-4xl bg-transparent text-center focus:outline-none focus:border-b-2 focus:border-blue-500"
+              className={editInputClass}
             />
-            <span className="text-4xl">:</span>
+            <span className="font-mono text-4xl font-semibold text-subtle sm:text-5xl">:</span>
             <input
               type="text"
+              inputMode="numeric"
+              aria-label="초"
               value={editValues.seconds}
               onChange={(e) => handleTimeInputChange('seconds', e.target.value)}
               onBlur={handleTimeInputBlur}
               onKeyDown={handleTimeInputKeyDown}
-              className="time-input w-[4ch] px-2 text-4xl bg-transparent text-center focus:outline-none focus:border-b-2 focus:border-blue-500"
+              className={editInputClass}
             />
           </div>
         ) : (
-          <span className="text-6xl">{hours}:{minutes}:{seconds}</span>
+          // 멈춰 있을 때만 시간을 직접 고칠 수 있다. 버튼으로 만들어 두면 눌러도 된다는 게
+          // 보이고 키보드로도 닿는다 — 예전에는 그냥 텍스트라 알 방법이 없었다.
+          <button
+            type="button"
+            onClick={startEditing}
+            disabled={isRunning}
+            aria-label={isRunning ? '측정 중에는 시간을 수정할 수 없습니다' : '시간 직접 입력'}
+            className="group relative rounded-xl px-3 py-2 transition-colors
+              enabled:hover:bg-surface-sunken disabled:cursor-default
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <span className="block font-mono text-[2.75rem] font-semibold leading-none tracking-tight text-text tabular-nums sm:text-6xl">
+              {hours}:{minutes}:{seconds}
+            </span>
+            {!isRunning && (
+              <span className="mt-2 block text-[11px] text-subtle opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                눌러서 직접 입력
+              </span>
+            )}
+          </button>
         )}
-      </div>
-      {isRunning && nextHourTime && mode === 'stopwatch' && (
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          {parseInt(hours) + 1}시간 도달 예정: {nextHourTime}
+
+        {isRunning && nextHourTime && mode === 'stopwatch' && (
+          <p className="text-xs text-subtle">
+            {parseInt(hours) + 1}시간 도달 예정 · <span className="font-mono">{nextHourTime}</span>
+          </p>
+        )}
+
+        <div className="flex w-full max-w-sm gap-2">
+          <Button
+            size="lg"
+            variant={isRunning ? 'danger' : 'success'}
+            onClick={isRunning ? handleStop : handleStart}
+            className="flex-1"
+          >
+            {isRunning ? '정지' : '시작'}
+          </Button>
+          <Button size="lg" variant="neutral" onClick={handleReset}>
+            리셋
+          </Button>
         </div>
-      )}
-      <div className="flex gap-4">
-        <button
-          onClick={isRunning ? handleStop : handleStart}
-          className={`px-6 py-2 rounded-lg font-semibold ${
-            isRunning
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-green-500 hover:bg-green-600 text-white'
-          } transition-colors`}
-        >
-          {isRunning ? '정지' : '시작'}
-        </button>
-        <button
-          onClick={handleReset}
-          className="px-6 py-2 rounded-lg font-semibold bg-gray-500 hover:bg-gray-600 text-white transition-colors"
-        >
-          리셋
-        </button>
       </div>
-    </div>
+    </Card>
   );
 }

@@ -1,46 +1,59 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { HuntingRecord } from '@/types/hunting';
+import { useMemo, useState, useRef } from 'react';
+import { HuntingRecord, HuntingResults } from '@/types/hunting';
+import Button, { IconButton } from './ui/Button';
+import { useDialog } from './ui/Dialog';
+import { RATE_OPTIONS, perRate, perRateCount, resultsOf, type RateMinutes } from '@/lib/hunting';
 
 interface HuntingRecordsProps {
   records: HuntingRecord[];
+  /** 수익을 몇 분 단위로 보여 줄지. 정산 결과 패널에서 고른 값을 따른다. */
+  rate: RateMinutes;
   onDelete: (id: string) => void;
   onLoad: (record: HuntingRecord) => void;
   onImport: (records: HuntingRecord[]) => void;
   onClearAll: () => void;
 }
 
-export default function HuntingRecords({ records, onDelete, onLoad, onImport, onClearAll }: HuntingRecordsProps) {
-  const [selectedRecord, setSelectedRecord] = useState<HuntingRecord | null>(null);
+const formatDate = (timestamp: number) =>
+  new Date(timestamp).toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+const formatDuration = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hours}시간 ${minutes}분 ${secs}초`;
+};
+
+export default function HuntingRecords({ records, rate, onDelete, onLoad, onImport, onClearAll }: HuntingRecordsProps) {
+  const rateLabel = RATE_OPTIONS.find(option => option.value === rate)?.label ?? '';
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialog = useDialog();
 
-  const filteredRecords = records.filter(record => {
+  // 정산 결과는 기록에 저장돼 있지 않다. 재료에서 다시 내되, 검색어를 칠 때마다 다시
+  // 계산하지 않도록 기록 목록이 바뀔 때만 낸다.
+  const entries = useMemo(
+    () => records.map(record => ({ record, results: resultsOf(record) })),
+    [records],
+  );
+
+  const filteredEntries = entries.filter(({ record }) => {
     const query = searchQuery.toLowerCase();
     return record.location.toLowerCase().includes(query) ||
            (record.note && record.note.toLowerCase().includes(query));
   });
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours}시간 ${minutes}분 ${secs}초`;
-  };
-
-  const copyToClipboard = async (record: HuntingRecord) => {
+  const copyToClipboard = async (record: HuntingRecord, results: HuntingResults) => {
     const formattedRecord = `
 [메이플랜드 사냥 기록]
 시간: ${formatDate(record.timestamp)}
@@ -48,20 +61,20 @@ export default function HuntingRecords({ records, onDelete, onLoad, onImport, on
 진행 시간: ${formatDuration(record.duration)}
 ${record.note ? `\n메모: ${record.note}` : ''}
 
-레벨: Lv.${record.stats.startLevel} (${record.results.startExpPercentage}%) → Lv.${record.stats.endLevel} (${record.results.endExpPercentage}%)
-레벨 상승: ${record.results.levelDiff} 레벨
+레벨: Lv.${record.stats.startLevel} (${results.startExpPercentage}%) → Lv.${record.stats.endLevel} (${results.endExpPercentage}%)
+레벨 상승: ${results.levelDiff} 레벨
 
 경험치
-- 총 획득: ${record.results.expGained.toLocaleString()}
-- 5분당: ${record.results.expPerFiveMin.toLocaleString()}
+- 총 획득: ${results.expGained.toLocaleString()}
+- ${rateLabel}당: ${perRate(results.expPerMinute, rate).toLocaleString()}
 
 메소
-- 순수 획득: ${record.results.rawMesoGained.toLocaleString()} 메소
-- 총 순수익: ${record.results.netMesoGained.toLocaleString()} 메소
-- 5분당: ${record.results.mesoPerFiveMin.toLocaleString()} 메소
+- 순수 획득: ${results.rawMesoGained.toLocaleString()} 메소
+- 총 순수익: ${results.netMesoGained.toLocaleString()} 메소
+- ${rateLabel}당: ${perRate(results.mesoPerMinute, rate).toLocaleString()} 메소
 
-${record.results.itemStats.length > 0 ? `아이템 변동:
-${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (5분당 ${item.perFiveMin.toFixed(2)}개)
+${results.itemStats.length > 0 ? `아이템 변동:
+${results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (${rateLabel}당 ${perRateCount(item.perMinute, rate).toFixed(2)}개)
   가치: ${item.value.toLocaleString()} 메소`).join('\n')}` : ''}`;
 
     try {
@@ -91,235 +104,276 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
+      let importedRecords: HuntingRecord[];
       try {
-        const importedRecords = JSON.parse(e.target?.result as string);
-        if (Array.isArray(importedRecords)) {
-          if (window.confirm('기존 기록에 추가하시겠습니까?\n취소를 선택하면 기존 기록이 삭제됩니다.')) {
-            onImport([...records, ...importedRecords]);
-          } else {
-            onImport(importedRecords);
-          }
-        }
+        const parsed = JSON.parse(e.target?.result as string);
+        if (!Array.isArray(parsed)) throw new Error('기록 배열이 아닙니다.');
+        importedRecords = parsed;
       } catch (error) {
         console.error('Failed to parse records:', error);
-        alert('파일 형식이 올바르지 않습니다.');
+        await dialog.alert({
+          title: '파일을 읽지 못했습니다',
+          description: '내보내기로 받은 JSON 파일인지 확인해 주세요.',
+        });
+        return;
       }
+
+      // 예전에는 확인창의 "취소" 가 곧 전체 교체였다. 두 갈래 버튼에 세 갈래 뜻을 담느라
+      // 문구를 잘못 읽으면 저장된 기록이 통째로 사라졌고, 서버가 없어 되돌릴 수도 없었다.
+      const mode = await dialog.ask<'append' | 'replace' | 'cancel'>({
+        title: `기록 ${importedRecords.length}건을 불러옵니다`,
+        description:
+          records.length > 0
+            ? `지금 저장된 기록은 ${records.length}건입니다. 어떻게 할까요?`
+            : undefined,
+        cancelValue: 'cancel',
+        choices:
+          records.length > 0
+            ? [
+                { value: 'cancel', label: '취소', tone: 'neutral' },
+                { value: 'replace', label: '모두 교체', tone: 'danger' },
+                { value: 'append', label: '기존에 추가', tone: 'primary' },
+              ]
+            : [
+                { value: 'cancel', label: '취소', tone: 'neutral' },
+                { value: 'append', label: '불러오기', tone: 'primary' },
+              ],
+      });
+
+      if (mode === 'append') onImport([...records, ...importedRecords]);
+      else if (mode === 'replace') onImport(importedRecords);
     };
     reader.readAsText(file);
     event.target.value = ''; // Reset file input
   };
 
-  if (records.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-end gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImport}
-            accept=".json"
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            기록 불러오기
-          </button>
-        </div>
-        <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-          저장된 사냥 기록이 없습니다.
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <button
-            onClick={() => {
-              if (window.confirm('모든 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-                onClearAll();
-              }
-            }}
-            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-          >
-            모든 기록 삭제
-          </button>
-          <div className="flex gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImport}
-              accept=".json"
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-            >
-              기록 불러오기
-            </button>
-            <button
-              onClick={handleExport}
-              className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-            >
-              기록 내보내기
-            </button>
-          </div>
-        </div>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImport}
+        accept=".json"
+        className="hidden"
+      />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="neutral" onClick={() => fileInputRef.current?.click()}>
+          불러오기
+        </Button>
+        <Button size="sm" variant="neutral" onClick={handleExport} disabled={records.length === 0}>
+          내보내기
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto text-danger hover:text-danger-hover"
+          disabled={records.length === 0}
+          onClick={async () => {
+            const confirmed = await dialog.confirm({
+              title: `기록 ${records.length}건을 모두 삭제할까요?`,
+              description: '되돌릴 수 없습니다. 남겨 두려면 먼저 내보내기로 파일을 받아 두세요.',
+              confirmLabel: '모두 삭제',
+              tone: 'danger',
+            });
+            if (confirmed) onClearAll();
+          }}
+        >
+          모두 삭제
+        </Button>
+      </div>
+
+      {records.length > 0 && (
         <div className="relative">
           <input
-            type="text"
+            type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="사냥터 또는 노트로 검색"
-            className="w-full pl-10 pr-4 py-2 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
+            aria-label="기록 검색"
+            className="field field-sunken pl-9"
           />
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            strokeWidth={1.75}
+            stroke="currentColor"
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
           </svg>
         </div>
-      </div>
+      )}
 
-      <div className="min-h-0 max-h-[calc(100vh-24rem)] overflow-y-auto pr-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <div className="grid gap-4">
-          {filteredRecords.map(record => (
-            <div
-              key={record.id}
-              className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedRecord(record === selectedRecord ? null : record)}
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">{record.location}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(record.timestamp)}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">진행 시간: {formatDuration(record.duration)}</p>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                    <p className="text-gray-600 dark:text-gray-300">
-                      경험치: {record.results.expGained.toLocaleString()}
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-300">
-                      5분당: {record.results.expPerFiveMin.toLocaleString()}
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-300">
-                      순수익: {record.results.netMesoGained.toLocaleString()}
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-300">
-                      5분당: {record.results.mesoPerFiveMin.toLocaleString()}
-                    </p>
-                  </div>
-                  {record.note && (
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 italic">
-                      {record.note}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2">
+      {records.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-subtle">
+          저장된 사냥 기록이 없습니다.
+          <br />
+          정산 결과에서 <span className="text-muted">기록 저장</span>을 누르면 여기에 쌓입니다.
+        </p>
+      ) : filteredEntries.length === 0 ? (
+        <p className="px-4 py-10 text-center text-sm text-subtle">
+          &lsquo;{searchQuery}&rsquo; 와 맞는 기록이 없습니다.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {filteredEntries.map(({ record, results }) => {
+            const expanded = expandedId === record.id;
+            return (
+              <li
+                key={record.id}
+                className="rounded-xl border border-border bg-surface transition-colors hover:border-border-strong"
+              >
+                <div className="flex flex-col gap-2 p-3">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm('이 기록의 데이터를 불러오시겠습니까?\n현재 입력된 데이터는 사라집니다.')) {
-                        onLoad(record);
-                      }
-                    }}
-                    className="relative group p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    aria-label="기록 불러오기"
+                    type="button"
+                    onClick={() => setExpandedId(expanded ? null : record.id)}
+                    aria-expanded={expanded}
+                    className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-lg"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-green-500 dark:text-green-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                    </svg>
-                    <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      기록 불러오기
-                    </span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(record);
-                    }}
-                    className="relative group p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    aria-label="기록 복사"
-                  >
-                    {copiedId === record.id ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-green-500 dark:text-green-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-blue-500 dark:text-blue-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                      </svg>
-                    )}
-                    <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      {copiedId === record.id ? '복사됨!' : '기록 복사'}
-                    </span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm('이 기록을 삭제하시겠습니까?')) {
-                        onDelete(record.id);
-                      }
-                    }}
-                    className="relative group p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    aria-label="기록 삭제"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-red-500 dark:text-red-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
-                    <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      기록 삭제
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {selectedRecord?.id === record.id && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 space-y-3 text-sm">
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">레벨</div>
-                    <p className="text-gray-700 dark:text-gray-300">Lv.{record.stats.startLevel} ({record.results.startExpPercentage}%) → Lv.{record.stats.endLevel} ({record.results.endExpPercentage}%)</p>
-                    <p className="text-blue-600 dark:text-blue-400">총 {record.results.levelDiff} 레벨 상승</p>
-                  </div>
-
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">경험치</div>
-                    <p className="text-gray-700 dark:text-gray-300">총 획득: {record.results.expGained.toLocaleString()}</p>
-                    <p className="text-gray-700 dark:text-gray-300">5분당: {record.results.expPerFiveMin.toLocaleString()}</p>
-                  </div>
-
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">메소</div>
-                    <p className="text-gray-700 dark:text-gray-300">총 획득: {record.results.rawMesoGained.toLocaleString()} 메소</p>
-                    <p className="text-gray-700 dark:text-gray-300">순수익: {record.results.netMesoGained.toLocaleString()} 메소</p>
-                    <p className="text-gray-700 dark:text-gray-300">5분당: {record.results.mesoPerFiveMin.toLocaleString()} 메소</p>
-                  </div>
-
-                  {record.results.itemStats.length > 0 && (
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-white">아이템</div>
-                      <ul className="ml-4 space-y-2">
-                        {record.results.itemStats.map((item, index) => (
-                          <li key={index}>
-                            <div className="font-medium text-gray-700 dark:text-gray-300">{item.name}</div>
-                            <p className="text-gray-700 dark:text-gray-300">총 {item.diff > 0 ? '획득' : '사용'}: {Math.abs(item.diff).toLocaleString()}개</p>
-                            <p className="text-gray-700 dark:text-gray-300">5분당: {Math.abs(item.perFiveMin).toLocaleString()}개</p>
-                            <p className="text-gray-500 dark:text-gray-400">가치: {item.value.toLocaleString()} 메소</p>
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="truncate text-sm font-semibold text-text">{record.location}</h3>
+                      <span className="shrink-0 font-mono text-[11px] text-subtle">
+                        {formatDuration(record.duration)}
+                      </span>
                     </div>
-                  )}
+                    <p className="mt-0.5 text-[11px] text-subtle">{formatDate(record.timestamp)}</p>
+
+                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <dt className="text-subtle">EXP/{rateLabel}</dt>
+                        <dd className="font-mono font-medium text-accent">
+                          {perRate(results.expPerMinute, rate).toLocaleString()}
+                        </dd>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <dt className="text-subtle">수익/{rateLabel}</dt>
+                        <dd className="font-mono font-medium text-gold">
+                          {perRate(results.mesoPerMinute, rate).toLocaleString()}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    {record.note && (
+                      <p className="mt-2 line-clamp-2 text-xs text-muted">{record.note}</p>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-end gap-0.5 border-t border-border pt-1.5">
+                    <IconButton
+                      className="h-8 w-8"
+                      label="이 기록 불러오기"
+                      tone="success"
+                      onClick={async () => {
+                        const confirmed = await dialog.confirm({
+                          title: `'${record.location}' 기록을 불러올까요?`,
+                          description: '지금 입력 중인 내용이 이 기록의 값으로 바뀝니다. 저장된 기록은 그대로입니다.',
+                          confirmLabel: '불러오기',
+                          tone: 'primary',
+                        });
+                        if (confirmed) onLoad(record);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.75} stroke="currentColor" className="h-4 w-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                      </svg>
+                    </IconButton>
+                    <IconButton
+                      className="h-8 w-8"
+                      label={copiedId === record.id ? '복사됨' : '텍스트로 복사'}
+                      tone={copiedId === record.id ? 'success' : 'accent'}
+                      onClick={() => copyToClipboard(record, results)}
+                    >
+                      {copiedId === record.id ? (
+                        <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.75} stroke="currentColor" className="h-4 w-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                        </svg>
+                      )}
+                    </IconButton>
+                    <IconButton
+                      className="h-8 w-8"
+                      label="이 기록 삭제"
+                      tone="danger"
+                      onClick={async () => {
+                        const confirmed = await dialog.confirm({
+                          title: `'${record.location}' 기록을 삭제할까요?`,
+                          description: '되돌릴 수 없습니다.',
+                          confirmLabel: '삭제',
+                          tone: 'danger',
+                        });
+                        if (confirmed) onDelete(record.id);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.75} stroke="currentColor" className="h-4 w-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                      </svg>
+                    </IconButton>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+
+                {expanded && (
+                  <div className="space-y-3 border-t border-border px-3 py-3 text-xs">
+                    <div>
+                      <div className="mb-1 font-semibold text-muted">레벨</div>
+                      <p className="text-text">
+                        Lv.{record.stats.startLevel} ({results.startExpPercentage}%) → Lv.
+                        {record.stats.endLevel} ({results.endExpPercentage}%)
+                        <span className="ml-2 text-accent">{results.levelDiff} 레벨</span>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-subtle">총 경험치</span>
+                        <span className="font-mono text-text">{results.expGained.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-subtle">순수 메소</span>
+                        <span className="font-mono text-text">{results.rawMesoGained.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-subtle">총 순수익</span>
+                        <span className="font-mono text-gold">{results.netMesoGained.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-subtle">수익/{rateLabel}</span>
+                        <span className="font-mono text-gold">{perRate(results.mesoPerMinute, rate).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {results.itemStats.length > 0 && (
+                      <div>
+                        <div className="mb-1 font-semibold text-muted">아이템</div>
+                        <ul className="space-y-1">
+                          {results.itemStats.map((item, index) => (
+                            <li key={index} className="flex items-baseline justify-between gap-2">
+                              <span className="truncate text-text">{item.name || '이름 없음'}</span>
+                              <span className="shrink-0 font-mono text-subtle">
+                                <span className={item.diff > 0 ? 'text-success' : item.diff < 0 ? 'text-danger' : ''}>
+                                  {item.diff > 0 ? '+' : ''}
+                                  {item.diff.toLocaleString()}개
+                                </span>
+                                {' · '}
+                                {item.value.toLocaleString()} 메소
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

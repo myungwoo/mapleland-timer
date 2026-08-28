@@ -36,12 +36,25 @@ npm run build   # 정적 내보내기 → out/
   (`migrateLegacyStorageKeys`). 배포를 되돌려도 사냥 기록이 남아 있어야 하고, 그래야
   여러 번 돌아도 결과가 같다.
 
-### 2. 시간은 실제 시계로 계산한다
+### 2. 색은 토큰으로만 쓴다
+
+`src/app/globals.css` 의 `:root` / `.dark` 에 정의한 CSS 변수가 색의 유일한 출처다.
+`tailwind.config.ts` 가 이걸 `bg-surface`, `text-muted`, `text-accent` 같은 이름으로 노출한다.
+
+컴포넌트에서 `bg-gray-800`, `text-blue-500` 처럼 팔레트 색을 직접 쓰지 않는다 — 라이트와
+다크 두 벌을 손으로 맞추다 보면 반드시 한쪽이 어긋난다. 다크는 `.dark` 클래스로만 갈리므로
+(`darkMode: 'class'`) `prefers-color-scheme` 미디어 쿼리로 색을 정의해도 안 된다.
+`layout.tsx` 의 프리-페인트 스크립트가 정한 테마와 어긋난다.
+
+버튼·카드·입력의 외형은 `src/components/ui/` 에 모여 있다. 새 화면을 만들 때 클래스를
+새로 짜기 전에 여기부터 본다.
+
+### 3. 시간은 실제 시계로 계산한다
 
 `setInterval` 횟수를 세면 탭이 백그라운드로 가거나 브라우저가 절전에 들어갈 때 어긋난다.
 저장한 시작 시각과 현재 시각의 차이로 계산해야 브라우저를 닫았다 열어도 이어진다.
 
-### 3. 서버가 없다
+### 4. 서버가 없다
 
 `output: "export"` 정적 빌드다. 라우트 핸들러·서버 액션·미들웨어를 넣으면 빌드가 깨진다.
 `basePath` 는 배포하는 쪽이 `NEXT_PUBLIC_BASE_PATH` 로 주입한다(`next.config.ts`).
