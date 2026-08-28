@@ -19,23 +19,26 @@ interface DrawerProps {
 /** 닫히는 동안 화면에 남겨 두는 시간. tailwind.config.ts 의 나가는 애니메이션과 맞춘다. */
 const LEAVE_MS = 180;
 
+type Phase = 'closed' | 'open' | 'leaving';
+
 export default function Drawer({ open, onClose, title, description, children }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  // 닫자마자 지워 버리면 열 때만 미끄러지고 닫을 때는 툭 사라진다. 나가는 동안만 더 그린다.
-  const [leaving, setLeaving] = useState(false);
-  const wasOpenRef = useRef(open);
+  /**
+   * 닫자마자 지우면 닫히는 모습이 없다. 그렇다고 '나가는 중' 을 effect 에서 켜면, effect 는
+   * 렌더가 끝난 뒤에 도니 그 사이 한 프레임 동안 서랍이 통째로 사라졌다가 다시 나타난다 —
+   * 뒤 배경의 회색과 블러가 깜빡이는 것처럼 보인다. 그래서 렌더 도중에 정리한다.
+   */
+  const [phase, setPhase] = useState<Phase>(open ? 'open' : 'closed');
+  if (open && phase !== 'open') setPhase('open');
+  else if (!open && phase === 'open') setPhase('leaving');
 
   useEffect(() => {
-    const wasOpen = wasOpenRef.current;
-    wasOpenRef.current = open;
-    if (!wasOpen || open) return;
-
-    setLeaving(true);
-    const timer = setTimeout(() => setLeaving(false), LEAVE_MS);
+    if (phase !== 'leaving') return;
+    const timer = setTimeout(() => setPhase('closed'), LEAVE_MS);
     return () => clearTimeout(timer);
-  }, [open]);
+  }, [phase]);
 
   useEffect(() => {
     if (!open) return;
@@ -63,7 +66,8 @@ export default function Drawer({ open, onClose, title, description, children }: 
     };
   }, [open, onClose]);
 
-  if (!open && !leaving) return null;
+  if (phase === 'closed') return null;
+  const leaving = phase === 'leaving';
 
   return (
     <div

@@ -55,6 +55,9 @@ export const useDialog = () => {
   return api;
 };
 
+/** 닫히는 동안 화면에 남겨 두는 시간. tailwind.config.ts 의 나가는 애니메이션과 맞춘다. */
+const LEAVE_MS = 180;
+
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -67,6 +70,9 @@ const FOCUSABLE =
  */
 export function DialogProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<DialogRequest<unknown> | null>(null);
+  // 닫히는 모습을 보여 주려면 물러난 뒤에도 잠깐 더 그려야 한다.
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolverRef = useRef<((value: unknown) => void) | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -75,17 +81,30 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     // 확인창이 떠 있는 동안에는 뒤쪽 조작이 막히므로 요청이 겹칠 일은 없다.
     // 그래도 겹치면 앞 요청은 물러난 것으로 본다 — 응답을 영영 기다리게 두지 않는다.
     resolverRef.current?.(next.cancelValue);
+    // 앞 확인창이 사라지는 중이었다면 그 뒷정리를 취소한다. 새로 뜬 것을 지워 버린다.
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = null;
+
     return new Promise<T>(resolve => {
       resolverRef.current = resolve as (value: unknown) => void;
+      setLeaving(false);
       setRequest(next as DialogRequest<unknown>);
     });
   }, []);
 
   const settle = useCallback((value: unknown) => {
-    setRequest(null);
     const resolve = resolverRef.current;
     resolverRef.current = null;
+
+    // 응답은 바로 준다. 부르는 쪽이 애니메이션을 기다릴 이유는 없다.
+    setLeaving(true);
     resolve?.(value);
+
+    leaveTimerRef.current = setTimeout(() => {
+      leaveTimerRef.current = null;
+      setRequest(null);
+      setLeaving(false);
+    }, LEAVE_MS);
   }, []);
 
   const api = useMemo<DialogApi>(
@@ -113,7 +132,8 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!request) return;
+    // 사라지는 중에는 이미 끝난 것으로 본다. 포커스와 스크롤을 곧바로 돌려준다.
+    if (!request || leaving) return;
 
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
 
@@ -155,7 +175,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
       document.body.style.overflow = previousOverflow;
       restoreFocusRef.current?.focus();
     };
-  }, [request, settle]);
+  }, [request, leaving, settle]);
 
   return (
     <DialogContext.Provider value={api}>
@@ -165,21 +185,30 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           // Drawer 가 document 에서 Escape 를 듣고 있다. 확인창이 떠 있을 때 Esc 로
           // 서랍까지 같이 닫히지 않도록, 서랍은 이 표시가 붙은 층에서 온 키를 넘긴다.
           data-dialog-layer=""
-          className="fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center"
+          className={`fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center ${
+            leaving ? 'pointer-events-none' : ''
+          }`}
         >
           <div
-            className="absolute inset-0 animate-fade-in bg-slate-950/50 backdrop-blur-[2px]"
+            className={`absolute inset-0 bg-slate-950/50 backdrop-blur-[2px] ${
+              leaving ? 'animate-fade-out' : 'animate-fade-in'
+            }`}
             onClick={() => settle(request.cancelValue)}
             aria-hidden="true"
           />
           <div
             ref={panelRef}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="dialog-title"
-            aria-describedby={request.description ? 'dialog-description' : undefined}
-            className="relative w-full max-w-sm animate-fade-in rounded-2xl border border-border
-              bg-surface p-5 shadow-overlay"
+            // 사라지는 중에는 이미 닫힌 것으로 친다.
+            {...(leaving
+              ? { 'aria-hidden': true }
+              : {
+                  role: 'alertdialog',
+                  'aria-modal': true,
+                  'aria-labelledby': 'dialog-title',
+                  'aria-describedby': request.description ? 'dialog-description' : undefined,
+                })}
+            className={`relative w-full max-w-sm rounded-2xl border border-border
+              bg-surface p-5 shadow-overlay ${leaving ? 'animate-fade-out' : 'animate-fade-in'}`}
           >
             <h2 id="dialog-title" className="text-base font-semibold tracking-tight text-text">
               {request.title}
