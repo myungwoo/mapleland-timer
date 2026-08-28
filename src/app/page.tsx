@@ -237,7 +237,12 @@ export default function Home() {
               />
             </div>
 
-            <div className="lg:sticky lg:top-[4.5rem]">
+            {/*
+              패널이 화면보다 길어지면(아이템이 여럿일 때) 고정된 채로 아래쪽이 잘려서,
+              저장 버튼을 누르려면 페이지 맨 아래까지 내려야 했다. 안에서 스크롤시켜
+              언제나 패널 전체에 닿게 한다.
+            */}
+            <div className="lg:sticky lg:top-[4.5rem] lg:flex lg:max-h-[calc(100vh-6rem)]">
               <ResultsPanel
                 stats={stats}
                 results={results}

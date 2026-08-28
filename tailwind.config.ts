@@ -72,15 +72,26 @@ const config: Config = {
           from: { transform: 'translateX(100%)' },
           to: { transform: 'translateX(0)' },
         },
+        'slide-out-right': {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(100%)' },
+        },
         'fade-in': {
           from: { opacity: '0' },
           to: { opacity: '1' },
+        },
+        'fade-out': {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
         },
       },
       animation: {
         flash: 'flash 0.5s cubic-bezier(0.4, 0, 0.6, 1) 3',
         'slide-in-right': 'slide-in-right 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+        // 나가는 동안 마지막 프레임에 머물러야 사라지기 직전에 튀지 않는다.
+        'slide-out-right': 'slide-out-right 0.18s cubic-bezier(0.32, 0.72, 0, 1) forwards',
         'fade-in': 'fade-in 0.18s ease-out',
+        'fade-out': 'fade-out 0.18s ease-out forwards',
       },
     },
   },

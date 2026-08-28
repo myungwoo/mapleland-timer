@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { IconButton } from './Button';
 
 interface DrawerProps {
@@ -16,9 +16,26 @@ interface DrawerProps {
  *
  * 좁은 화면에서는 화면을 꽉 채운다 — 폰에서 기록을 볼 때 옆에 남는 배경은 쓸모가 없다.
  */
+/** 닫히는 동안 화면에 남겨 두는 시간. tailwind.config.ts 의 나가는 애니메이션과 맞춘다. */
+const LEAVE_MS = 180;
+
 export default function Drawer({ open, onClose, title, description, children }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  // 닫자마자 지워 버리면 열 때만 미끄러지고 닫을 때는 툭 사라진다. 나가는 동안만 더 그린다.
+  const [leaving, setLeaving] = useState(false);
+  const wasOpenRef = useRef(open);
+
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!wasOpen || open) return;
+
+    setLeaving(true);
+    const timer = setTimeout(() => setLeaving(false), LEAVE_MS);
+    return () => clearTimeout(timer);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,20 +63,30 @@ export default function Drawer({ open, onClose, title, description, children }: 
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open && !leaving) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className={`fixed inset-0 z-50 flex justify-end ${leaving ? 'pointer-events-none' : ''}`}
+      // 나가는 중에는 이미 닫힌 것으로 친다. 보조기술에 사라지는 패널을 읽어 줄 이유가 없다.
+      {...(leaving
+        ? { 'aria-hidden': true }
+        : { role: 'dialog', 'aria-modal': true, 'aria-label': title })}
+    >
       <div
-        className="absolute inset-0 animate-fade-in bg-slate-950/50 backdrop-blur-[2px]"
+        className={`absolute inset-0 bg-slate-950/50 backdrop-blur-[2px] ${
+          leaving ? 'animate-fade-out' : 'animate-fade-in'
+        }`}
         onClick={onClose}
         aria-hidden="true"
       />
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative flex h-full w-full animate-slide-in-right flex-col border-l border-border
-          bg-bg shadow-overlay outline-none sm:max-w-[30rem]"
+        className={`relative flex h-full w-full flex-col border-l border-border
+          bg-bg shadow-overlay outline-none sm:max-w-[30rem] ${
+            leaving ? 'animate-slide-out-right' : 'animate-slide-in-right'
+          }`}
       >
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">

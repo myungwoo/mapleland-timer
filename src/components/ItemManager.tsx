@@ -99,7 +99,11 @@ export default function ItemManager({ title, items, onItemsChange }: ItemManager
                                 : 'border-border bg-surface-sunken sm:bg-transparent'
                             }`}
                         >
-                          <div className="flex items-center gap-1.5">
+                          {/*
+                            좁은 화면에서는 삭제 버튼이 행 오른쪽 위에 떠 있다. 이름 입력이
+                            그 아래까지 뻗으면 이름 끝을 누를 때 삭제가 눌리므로 자리를 비운다.
+                          */}
+                          <div className="flex items-center gap-1.5 pr-9 sm:pr-0">
                             <span
                               {...dragProvided.dragHandleProps}
                               aria-label="순서 변경"
