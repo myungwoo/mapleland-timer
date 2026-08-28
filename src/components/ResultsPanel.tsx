@@ -3,13 +3,24 @@
 import { ReactNode } from 'react';
 import Button from './ui/Button';
 import Card, { CardHeader } from './ui/Card';
+import SegmentedControl from './ui/SegmentedControl';
 import { HuntingResults, HuntingStats } from '@/types/hunting';
-import { formatClock, rawMesoPerMinute } from '@/lib/hunting';
+import {
+  RATE_OPTIONS,
+  formatClock,
+  perRate,
+  perRateCount,
+  rawMesoPerMinute,
+  type RateMinutes,
+} from '@/lib/hunting';
 
 interface ResultsPanelProps {
   stats: HuntingStats;
   results: HuntingResults;
   elapsedTime: number;
+  /** 수익을 몇 분 단위로 보여 줄지. */
+  rate: RateMinutes;
+  onRateChange: (rate: RateMinutes) => void;
   onSave: () => void;
 }
 
@@ -63,7 +74,15 @@ function StatTile({ label, value, hint, tone = 'default' }: StatTileProps) {
  * 중요한 분당 수익을 찾으려면 목록 전체를 읽어야 했다. 자주 보는 수치를 타일로 올리고
  * 나머지는 아래로 내렸다.
  */
-export default function ResultsPanel({ stats, results, elapsedTime, onSave }: ResultsPanelProps) {
+export default function ResultsPanel({
+  stats,
+  results,
+  elapsedTime,
+  rate,
+  onRateChange,
+  onSave,
+}: ResultsPanelProps) {
+  const rateLabel = RATE_OPTIONS.find(option => option.value === rate)?.label ?? '';
   const hasDuration = elapsedTime > 0;
   const endExpPercent = Math.min(100, Math.max(0, parseFloat(results.endExpPercentage) || 0));
   const itemValueTotal = results.itemStats.reduce((sum, item) => sum + item.value, 0);
@@ -84,8 +103,17 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
                 진행 시간 <span className="font-mono text-muted">{formatDuration(elapsedTime)}</span> 기준
               </>
             ) : (
-              '진행 시간이 0이라 분당 수치는 계산되지 않습니다.'
+              '진행 시간이 0이라 단위당 수치는 계산되지 않습니다.'
             )
+          }
+          actions={
+            <SegmentedControl
+              aria-label="수익 표시 단위"
+              size="sm"
+              value={rate}
+              onChange={onRateChange}
+              options={RATE_OPTIONS}
+            />
           }
         />
 
@@ -128,8 +156,8 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
             value={results.expGained.toLocaleString()}
           />
           <StatTile
-            label="1분당 경험치"
-            value={results.expPerMinute.toLocaleString()}
+            label={`${rateLabel}당 경험치`}
+            value={perRate(results.expPerMinute, rate).toLocaleString()}
             tone="accent"
           />
           <StatTile
@@ -138,8 +166,8 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
             hint={netUnit ? `${netUnit} 메소` : '메소'}
           />
           <StatTile
-            label="1분당 순수익"
-            value={results.mesoPerMinute.toLocaleString()}
+            label={`${rateLabel}당 순수익`}
+            value={perRate(results.mesoPerMinute, rate).toLocaleString()}
             hint="메소"
             tone="gold"
           />
@@ -165,9 +193,9 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
             </span>
           </div>
           <div className="flex items-center justify-between gap-2 text-subtle">
-            <span>순수 메소 1분당</span>
+            <span>순수 메소 {rateLabel}당</span>
             <span className="font-mono">
-              {rawMesoPerMinute(results.rawMesoGained, elapsedTime).toLocaleString()}
+              {perRate(rawMesoPerMinute(results.rawMesoGained, elapsedTime), rate).toLocaleString()}
             </span>
           </div>
         </div>
@@ -195,7 +223,7 @@ export default function ResultsPanel({ stats, results, elapsedTime, onSave }: Re
                       {item.diff.toLocaleString()}개
                     </span>
                     <span className="ml-2 font-mono text-subtle">
-                      1분당 {Math.abs(item.perMinute).toLocaleString()}
+                      {rateLabel}당 {Math.abs(perRateCount(item.perMinute, rate)).toLocaleString()}
                     </span>
                     <span className="block font-mono text-subtle">
                       {item.value.toLocaleString()} 메소

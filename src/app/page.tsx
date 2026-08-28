@@ -11,7 +11,7 @@ import { DialogProvider } from '@/components/ui/Dialog';
 import { HuntingRecord, HuntingStats } from '@/types/hunting';
 import { Item } from '@/components/ItemManager';
 import { STORAGE_KEY, migrateLegacyStorageKeys } from '@/constants/storage';
-import { EMPTY_STATS, calculateResults } from '@/lib/hunting';
+import { DEFAULT_RATE, EMPTY_STATS, calculateResults, readRate, type RateMinutes } from '@/lib/hunting';
 
 interface TimerState {
   time: number;
@@ -29,6 +29,7 @@ export default function Home() {
   const [records, setRecords] = useState<HuntingRecord[]>([]);
   const [isRecordsOpen, setIsRecordsOpen] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [rate, setRate] = useState<RateMinutes>(DEFAULT_RATE);
 
   // 입력 중인 한 판. 폼과 결과 패널이 같은 값을 봐야 해서 여기서 들고 있는다.
   const [stats, setStats] = useState<HuntingStats>(EMPTY_STATS);
@@ -96,6 +97,8 @@ export default function Home() {
         setNote(savedNote);
       }
 
+      setRate(readRate());
+
       setIsLoading(false);
     }
   }, []);
@@ -132,6 +135,10 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading) localStorage.setItem(STORAGE_KEY.NOTE, note);
   }, [note, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading) localStorage.setItem(STORAGE_KEY.RATE, String(rate));
+  }, [rate, isLoading]);
 
   const results = useMemo(
     () => calculateResults(stats, items, elapsedTime),
@@ -246,6 +253,8 @@ export default function Home() {
                 stats={stats}
                 results={results}
                 elapsedTime={elapsedTime}
+                rate={rate}
+                onRateChange={setRate}
                 onSave={handleSaveRecord}
               />
             </div>
@@ -260,6 +269,7 @@ export default function Home() {
         >
           <HuntingRecords
             records={records}
+            rate={rate}
             onDelete={handleDeleteRecord}
             onLoad={handleLoadRecord}
             onImport={handleImportRecords}

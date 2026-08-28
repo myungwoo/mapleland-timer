@@ -1,5 +1,6 @@
 import { Item } from '@/components/ItemManager';
 import { HuntingRecord, HuntingResults, HuntingStats } from '@/types/hunting';
+import { STORAGE_KEY } from '@/constants/storage';
 
 export const EMPTY_STATS: HuntingStats = {
   location: '',
@@ -71,7 +72,7 @@ const calculateItemStats = (items: Item[], minutesElapsed: number) =>
     return {
       name: item.name,
       diff,
-      perMinute: round2(perMinute),
+      perMinute,
       value: diff * price,
     };
   });
@@ -127,11 +128,11 @@ export const calculateResults = (
     startExpPercentage: calculateExpPercentage(startExpNum, startLevelNum),
     endExpPercentage: calculateExpPercentage(endExpNum, endLevelNum),
     expGained: totalExpGained,
-    expPerMinute: Math.round(expPerMinute),
+    expPerMinute,
     rawMesoGained,
     itemStats,
     netMesoGained,
-    mesoPerMinute: Math.round(mesoPerMinute),
+    mesoPerMinute,
   };
 };
 
@@ -142,7 +143,43 @@ export const resultsOf = (record: HuntingRecord): HuntingResults =>
 /** 순수 메소만 따진 분당 수익(아이템 가치 제외). */
 export const rawMesoPerMinute = (rawMesoGained: number, elapsedTime: number) => {
   const minutesElapsed = elapsedTime / 60;
-  return minutesElapsed > 0 ? Math.round(rawMesoGained / minutesElapsed) : 0;
+  return minutesElapsed > 0 ? rawMesoGained / minutesElapsed : 0;
+};
+
+/**
+ * 수익을 몇 분 단위로 보여 줄지. 값은 그 분 수 자체다.
+ *
+ * 사냥터마다 익숙한 단위가 다르다 — 물약 소모는 분당이 편하고, 경험치는 5분당으로 재는
+ * 사람이 많고, 사냥터끼리 비교할 때는 시간당이 눈에 들어온다. 그래서 고르게 둔다.
+ *
+ * 계산은 늘 분당으로 해 두고 보여 줄 때만 곱한다. 저장되는 값은 이 설정과 무관하다.
+ */
+export type RateMinutes = 1 | 5 | 60;
+
+export const RATE_OPTIONS: { value: RateMinutes; label: string }[] = [
+  { value: 1, label: '1분' },
+  { value: 5, label: '5분' },
+  { value: 60, label: '1시간' },
+];
+
+export const DEFAULT_RATE: RateMinutes = 5;
+
+/** 분당 값을 고른 단위로. 메소·경험치처럼 정수로 보는 값. */
+export const perRate = (perMinute: number, rate: RateMinutes) => Math.round(perMinute * rate);
+
+/** 분당 값을 고른 단위로. 개수처럼 소수가 의미 있는 값. */
+export const perRateCount = (perMinute: number, rate: RateMinutes) => round2(perMinute * rate);
+
+/** 저장된 단위 설정. 모르는 값이면 기본값으로 본다. */
+export const readRate = (): RateMinutes => {
+  try {
+    const stored = Number(localStorage.getItem(STORAGE_KEY.RATE));
+    return RATE_OPTIONS.some(option => option.value === stored)
+      ? (stored as RateMinutes)
+      : DEFAULT_RATE;
+  } catch {
+    return DEFAULT_RATE;
+  }
 };
 
 /** 초 단위 시간을 시:분:초 두 자리로. */

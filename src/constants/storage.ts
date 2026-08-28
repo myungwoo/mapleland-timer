@@ -11,6 +11,7 @@ export const STORAGE_KEY = {
   ITEMS: 'ml:hunt:items',
   TIMER: 'ml:hunt:timer',
   NOTE: 'ml:hunt:note',
+  RATE: 'ml:hunt:rate',
 } as const;
 
 /**

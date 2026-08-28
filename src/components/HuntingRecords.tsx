@@ -4,10 +4,12 @@ import { useMemo, useState, useRef } from 'react';
 import { HuntingRecord, HuntingResults } from '@/types/hunting';
 import Button, { IconButton } from './ui/Button';
 import { useDialog } from './ui/Dialog';
-import { resultsOf } from '@/lib/hunting';
+import { RATE_OPTIONS, perRate, perRateCount, resultsOf, type RateMinutes } from '@/lib/hunting';
 
 interface HuntingRecordsProps {
   records: HuntingRecord[];
+  /** 수익을 몇 분 단위로 보여 줄지. 정산 결과 패널에서 고른 값을 따른다. */
+  rate: RateMinutes;
   onDelete: (id: string) => void;
   onLoad: (record: HuntingRecord) => void;
   onImport: (records: HuntingRecord[]) => void;
@@ -30,7 +32,8 @@ const formatDuration = (seconds: number) => {
   return `${hours}시간 ${minutes}분 ${secs}초`;
 };
 
-export default function HuntingRecords({ records, onDelete, onLoad, onImport, onClearAll }: HuntingRecordsProps) {
+export default function HuntingRecords({ records, rate, onDelete, onLoad, onImport, onClearAll }: HuntingRecordsProps) {
+  const rateLabel = RATE_OPTIONS.find(option => option.value === rate)?.label ?? '';
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -63,15 +66,15 @@ ${record.note ? `\n메모: ${record.note}` : ''}
 
 경험치
 - 총 획득: ${results.expGained.toLocaleString()}
-- 1분당: ${results.expPerMinute.toLocaleString()}
+- ${rateLabel}당: ${perRate(results.expPerMinute, rate).toLocaleString()}
 
 메소
 - 순수 획득: ${results.rawMesoGained.toLocaleString()} 메소
 - 총 순수익: ${results.netMesoGained.toLocaleString()} 메소
-- 1분당: ${results.mesoPerMinute.toLocaleString()} 메소
+- ${rateLabel}당: ${perRate(results.mesoPerMinute, rate).toLocaleString()} 메소
 
 ${results.itemStats.length > 0 ? `아이템 변동:
-${results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (1분당 ${item.perMinute.toFixed(2)}개)
+${results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (${rateLabel}당 ${perRateCount(item.perMinute, rate).toFixed(2)}개)
   가치: ${item.value.toLocaleString()} 메소`).join('\n')}` : ''}`;
 
     try {
@@ -240,15 +243,15 @@ ${results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${it
 
                     <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                       <div className="flex items-baseline justify-between gap-2">
-                        <dt className="text-subtle">EXP/분</dt>
+                        <dt className="text-subtle">EXP/{rateLabel}</dt>
                         <dd className="font-mono font-medium text-accent">
-                          {results.expPerMinute.toLocaleString()}
+                          {perRate(results.expPerMinute, rate).toLocaleString()}
                         </dd>
                       </div>
                       <div className="flex items-baseline justify-between gap-2">
-                        <dt className="text-subtle">수익/분</dt>
+                        <dt className="text-subtle">수익/{rateLabel}</dt>
                         <dd className="font-mono font-medium text-gold">
-                          {results.mesoPerMinute.toLocaleString()}
+                          {perRate(results.mesoPerMinute, rate).toLocaleString()}
                         </dd>
                       </div>
                     </dl>
@@ -339,8 +342,8 @@ ${results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${it
                         <span className="font-mono text-gold">{results.netMesoGained.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <span className="text-subtle">수익/분</span>
-                        <span className="font-mono text-gold">{results.mesoPerMinute.toLocaleString()}</span>
+                        <span className="text-subtle">수익/{rateLabel}</span>
+                        <span className="font-mono text-gold">{perRate(results.mesoPerMinute, rate).toLocaleString()}</span>
                       </div>
                     </div>
 
