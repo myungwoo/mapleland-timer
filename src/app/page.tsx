@@ -1,13 +1,16 @@
 'use client';
 
+import { useState, useEffect, useMemo } from 'react';
+import AppHeader from '@/components/AppHeader';
 import Timer from '@/components/Timer';
 import StatsForm from '@/components/StatsForm';
+import ResultsPanel from '@/components/ResultsPanel';
 import HuntingRecords from '@/components/HuntingRecords';
-import ThemeToggle from '@/components/ThemeToggle';
-import { useState, useEffect } from 'react';
+import Drawer from '@/components/ui/Drawer';
 import { HuntingRecord, HuntingStats } from '@/types/hunting';
 import { Item } from '@/components/ItemManager';
 import { STORAGE_KEY, migrateLegacyStorageKeys } from '@/constants/storage';
+import { EMPTY_STATS, calculateResults } from '@/lib/hunting';
 
 interface TimerState {
   time: number;
@@ -23,9 +26,12 @@ export default function Home() {
   const [timerMode, setTimerMode] = useState<'stopwatch' | 'timer'>('stopwatch');
   const [targetTime, setTargetTime] = useState<number | null>(null);
   const [records, setRecords] = useState<HuntingRecord[]>([]);
-  const [currentStats, setCurrentStats] = useState<HuntingStats | null>(null);
-  const [currentItems, setCurrentItems] = useState<Item[]>([]);
-  const [currentNote, setCurrentNote] = useState<string>('');
+  const [isRecordsOpen, setIsRecordsOpen] = useState(false);
+
+  // 입력 중인 한 판. 폼과 결과 패널이 같은 값을 봐야 해서 여기서 들고 있는다.
+  const [stats, setStats] = useState<HuntingStats>(EMPTY_STATS);
+  const [items, setItems] = useState<Item[]>([]);
+  const [note, setNote] = useState<string>('');
 
   // 모든 데이터 로드
   useEffect(() => {
@@ -72,22 +78,20 @@ export default function Home() {
         }
       }
 
-      // 현재 통계 데이터 로드
+      // 입력 중이던 한 판
       const savedStats = localStorage.getItem(STORAGE_KEY.STATS);
       if (savedStats) {
-        setCurrentStats(JSON.parse(savedStats));
+        setStats({ ...EMPTY_STATS, ...JSON.parse(savedStats) });
       }
 
-      // 현재 아이템 데이터 로드
       const savedItems = localStorage.getItem(STORAGE_KEY.ITEMS);
       if (savedItems) {
-        setCurrentItems(JSON.parse(savedItems));
+        setItems(JSON.parse(savedItems));
       }
 
-      // 노트 데이터 로드
       const savedNote = localStorage.getItem(STORAGE_KEY.NOTE);
       if (savedNote) {
-        setCurrentNote(savedNote);
+        setNote(savedNote);
       }
 
       setIsLoading(false);
@@ -113,8 +117,44 @@ export default function Home() {
     }
   }, [records, isLoading]);
 
-  const handleSaveRecord = (record: HuntingRecord) => {
+  // 입력 중인 값도 그대로 남긴다. 예전에는 StatsForm 이 따로 저장했는데, 이제 값의 주인이
+  // 하나뿐이라 "화면에 보이는 것"과 "저장된 것"이 어긋날 일이 없다.
+  useEffect(() => {
+    if (!isLoading) localStorage.setItem(STORAGE_KEY.STATS, JSON.stringify(stats));
+  }, [stats, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading) localStorage.setItem(STORAGE_KEY.ITEMS, JSON.stringify(items));
+  }, [items, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading) localStorage.setItem(STORAGE_KEY.NOTE, note);
+  }, [note, isLoading]);
+
+  const results = useMemo(
+    () => calculateResults(stats, items, elapsedTime),
+    [stats, items, elapsedTime],
+  );
+
+  const handleSaveRecord = () => {
+    if (!stats.location.trim()) {
+      alert('사냥터 이름을 입력해주세요.');
+      return;
+    }
+
+    const record: HuntingRecord = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      duration: elapsedTime,
+      location: stats.location,
+      stats,
+      items,
+      note: note.trim(),
+      results,
+    };
+
     setRecords(prev => [record, ...prev]);
+    setIsRecordsOpen(true);
   };
 
   const handleDeleteRecord = (id: string) => {
@@ -122,85 +162,93 @@ export default function Home() {
   };
 
   const handleLoadRecord = (record: HuntingRecord) => {
-    // 타이머 시간 설정
     setElapsedTime(record.duration);
-
-    // 통계 데이터 설정
-    setCurrentStats(record.stats);
-    localStorage.setItem(STORAGE_KEY.STATS, JSON.stringify(record.stats));
-
-    // 아이템 데이터 설정
-    setCurrentItems(record.items);
-    localStorage.setItem(STORAGE_KEY.ITEMS, JSON.stringify(record.items));
-
-    // 노트 데이터 설정
-    setCurrentNote(record.note);
-    localStorage.setItem(STORAGE_KEY.NOTE, record.note);
+    setStats({ ...EMPTY_STATS, ...record.stats });
+    setItems(record.items);
+    setNote(record.note);
+    setIsRecordsOpen(false);
   };
 
   const handleImportRecords = (newRecords: HuntingRecord[]) => {
     setRecords(newRecords);
-    localStorage.setItem(STORAGE_KEY.RECORDS, JSON.stringify(newRecords));
   };
 
   const handleClearAllRecords = () => {
     setRecords([]);
-    localStorage.setItem(STORAGE_KEY.RECORDS, JSON.stringify([]));
   };
 
   if (isLoading) {
     return (
-      <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
-        <ThemeToggle />
-        <div className="flex flex-col items-center justify-center h-[80vh]">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">데이터를 불러오는 중...</p>
-        </div>
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
+        <p className="text-sm text-subtle">데이터를 불러오는 중…</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
-      <ThemeToggle />
-      <h1 className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">메이플랜드 사냥 타이머</h1>
-      <div className="container mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 md:grid-cols-[400px_1fr] gap-8">
-          <div className="space-y-8">
-            <div className="bg-white dark:bg-gray-800">
-              <Timer
-                onTimeUpdate={setElapsedTime}
-                initialTime={elapsedTime}
-                isRunning={isTimerRunning}
-                onRunningChange={setIsTimerRunning}
-                mode={timerMode}
-                onModeChange={setTimerMode}
-                targetTime={targetTime}
-                onTargetTimeChange={setTargetTime}
-              />
-            </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">사냥 기록 목록</h2>
-              <HuntingRecords
-                records={records}
-                onDelete={handleDeleteRecord}
-                onLoad={handleLoadRecord}
-                onImport={handleImportRecords}
-                onClearAll={handleClearAllRecords}
-              />
-            </div>
-          </div>
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+    <div className="min-h-screen bg-bg">
+      <AppHeader
+        elapsedTime={elapsedTime}
+        isRunning={isTimerRunning}
+        mode={timerMode}
+        recordCount={records.length}
+        onOpenRecords={() => setIsRecordsOpen(true)}
+      />
+
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        {/*
+          넓은 화면에서는 왼쪽에 타이머와 입력, 오른쪽에 정산 결과를 붙여 두고 결과만
+          따라다니게 한다. 좁은 화면에서는 그대로 한 줄로 쌓이고, 결과와 저장 버튼이
+          입력 아래 마지막에 온다 — 실제로 값을 다 적은 뒤에 보는 순서다.
+        */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
+          <div className="flex flex-col gap-4">
+            <Timer
+              onTimeUpdate={setElapsedTime}
+              initialTime={elapsedTime}
+              isRunning={isTimerRunning}
+              onRunningChange={setIsTimerRunning}
+              mode={timerMode}
+              onModeChange={setTimerMode}
+              targetTime={targetTime}
+              onTargetTimeChange={setTargetTime}
+            />
             <StatsForm
+              stats={stats}
+              onStatsChange={setStats}
+              items={items}
+              onItemsChange={setItems}
+              note={note}
+              onNoteChange={setNote}
+            />
+          </div>
+
+          <div className="lg:sticky lg:top-[4.5rem]">
+            <ResultsPanel
+              stats={stats}
+              results={results}
               elapsedTime={elapsedTime}
               onSave={handleSaveRecord}
-              initialStats={currentStats}
-              initialItems={currentItems}
-              initialNote={currentNote}
             />
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+
+      <Drawer
+        open={isRecordsOpen}
+        onClose={() => setIsRecordsOpen(false)}
+        title="사냥 기록"
+        description={records.length > 0 ? `${records.length}개 저장됨` : undefined}
+      >
+        <HuntingRecords
+          records={records}
+          onDelete={handleDeleteRecord}
+          onLoad={handleLoadRecord}
+          onImport={handleImportRecords}
+          onClearAll={handleClearAllRecords}
+        />
+      </Drawer>
+    </div>
   );
 }

@@ -2,20 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 색은 전부 여기 토큰으로만 정의한다. 컴포넌트는 `bg-surface`, `text-muted` 처럼
+ * 토큰 이름으로만 쓰고 `gray-800` 같은 팔레트 색을 직접 쓰지 않는다 — 라이트/다크
+ * 두 벌을 손으로 맞추다 보면 반드시 한쪽이 어긋난다.
+ *
+ * 값은 알파 없는 `R G B` 로 적는다. tailwind.config.ts 가 `rgb(var(--x) / <alpha-value>)`
+ * 로 감싸서 `bg-accent/10` 같은 투명도 유틸이 그대로 동작한다.
+ *
+ * 다크는 `.dark` 클래스로만 갈린다(`darkMode: 'class'`). prefers-color-scheme 미디어
+ * 쿼리를 여기에 두면 layout.tsx 의 프리-페인트 스크립트가 정한 테마와 어긋나므로 쓰지 않는다.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --bg: 248 250 252;
+  --surface: 255 255 255;
+  --surface-sunken: 244 246 249;
+  --border: 226 232 240;
+  --border-strong: 203 213 225;
+
+  --text: 15 23 42;
+  --text-muted: 71 85 105;
+  --text-subtle: 129 140 155;
+
+  /* 경험치·주요 액션 */
+  --accent: 79 70 229;
+  --accent-hover: 67 56 202;
+  --accent-fg: 255 255 255;
+
+  /* 메소·수익 */
+  --gold: 180 83 9;
+  --gold-strong: 146 64 14;
+
+  --success: 15 145 106;
+  --success-hover: 12 122 89;
+  --danger: 220 38 38;
+  --danger-hover: 185 28 28;
+
+  --ring: 99 102 241;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+.dark {
+  color-scheme: dark;
+
+  --bg: 9 11 17;
+  --surface: 22 26 35;
+  --surface-sunken: 16 19 27;
+  --border: 39 45 58;
+  --border-strong: 58 66 82;
+
+  --text: 237 241 247;
+  --text-muted: 155 165 182;
+  --text-subtle: 116 126 143;
+
+  --accent: 139 145 255;
+  --accent-hover: 165 170 255;
+  --accent-fg: 16 18 28;
+
+  --gold: 246 187 74;
+  --gold-strong: 252 211 129;
+
+  --success: 52 199 149;
+  --success-hover: 84 214 168;
+  --danger: 248 113 113;
+  --danger-hover: 252 143 143;
+
+  --ring: 139 145 255;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-text antialiased;
+  }
+
+  /* 숫자가 많은 화면이라 자릿수가 흔들리지 않게 전역으로 고정폭 숫자를 쓴다. */
+  body {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 개수·가격 입력에서 스피너가 폭만 잡아먹어 숨긴다. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  ::selection {
+    background-color: rgb(var(--accent) / 0.25);
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* 폼 컨트롤 공통 외형. @tailwind/forms 위에 토큰만 얹는다. */
+  .field {
+    @apply block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text
+           placeholder:text-subtle
+           focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/30
+           transition-colors;
+  }
+
+  .field-sunken {
+    @apply bg-surface-sunken;
+  }
+}
+
+@layer utilities {
+  /* 기록 목록처럼 자주 스크롤하는 영역용. 얇게, 그리고 테마를 따라가게. */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-strong)) transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border-strong));
+    border-radius: 9999px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* 사용자가 모션을 줄이도록 설정했으면 타이머 깜빡임 같은 연출을 끈다. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

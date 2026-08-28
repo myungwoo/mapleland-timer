@@ -1,6 +1,9 @@
 import type { Config } from "tailwindcss";
 import formsPlugin from '@tailwindcss/forms';
 
+/** globals.css 의 `--x` 토큰을 투명도 유틸(`bg-accent/10`)까지 되는 색으로 만든다. */
+const token = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
+
 const config: Config = {
   darkMode: 'class',
   content: [
@@ -11,22 +14,73 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        bg: token('bg'),
+        surface: {
+          DEFAULT: token('surface'),
+          sunken: token('surface-sunken'),
+        },
+        border: {
+          DEFAULT: token('border'),
+          strong: token('border-strong'),
+        },
+        text: {
+          DEFAULT: token('text'),
+          muted: token('text-muted'),
+          subtle: token('text-subtle'),
+        },
+        muted: token('text-muted'),
+        subtle: token('text-subtle'),
+        accent: {
+          DEFAULT: token('accent'),
+          hover: token('accent-hover'),
+          fg: token('accent-fg'),
+        },
+        gold: {
+          DEFAULT: token('gold'),
+          strong: token('gold-strong'),
+        },
+        success: {
+          DEFAULT: token('success'),
+          hover: token('success-hover'),
+        },
+        danger: {
+          DEFAULT: token('danger'),
+          hover: token('danger-hover'),
+        },
+        ring: token('ring'),
       },
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-conic":
-          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      fontFamily: {
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+      },
+      borderColor: {
+        DEFAULT: token('border'),
+      },
+      boxShadow: {
+        // 그림자를 얕게 깔고 경계는 테두리로 잡는다. 다크에서 그림자는 거의 보이지 않으므로
+        // 카드 구분은 테두리가 맡는다.
+        card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
+        lifted: '0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.06)',
+        overlay: '0 20px 50px -12px rgb(15 23 42 / 0.35)',
       },
       keyframes: {
         flash: {
           '0%, 100%': { backgroundColor: 'transparent' },
-          '50%': { backgroundColor: 'rgb(239 68 68)' }, // red-500
-        }
+          '50%': { backgroundColor: 'rgb(var(--danger) / 0.85)' },
+        },
+        'slide-in-right': {
+          from: { transform: 'translateX(100%)' },
+          to: { transform: 'translateX(0)' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
       },
       animation: {
         flash: 'flash 0.5s cubic-bezier(0.4, 0, 0.6, 1) 3',
+        'slide-in-right': 'slide-in-right 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+        'fade-in': 'fade-in 0.18s ease-out',
       },
     },
   },

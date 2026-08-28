@@ -1,16 +1,35 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import {
   LEGACY_THEME_STORAGE_KEY,
   THEME_STORAGE_KEY,
 } from '@/constants/storage';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+// 타이머 숫자와 정산 수치용. 자릿수가 늘어도 폭이 흔들리지 않아야 한다.
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "메이플랜드 사냥 타이머",
   description: "메이플랜드 사냥 기록 및 타이머",
+};
+
+export const viewport: Viewport = {
+  // 폰에서 한 손으로 쓰는 화면이라 주소창 색까지 테마를 따라가게 한다.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#090b11" },
+  ],
 };
 
 export default function RootLayout({
@@ -42,7 +61,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
+        {children}
+      </body>
     </html>
   );
 }
