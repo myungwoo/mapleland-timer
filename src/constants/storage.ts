@@ -12,6 +12,7 @@ export const STORAGE_KEY = {
   TIMER: 'ml:hunt:timer',
   NOTE: 'ml:hunt:note',
   RATE: 'ml:hunt:rate',
+  ALERT_SOUND: 'ml:hunt:alertSound',
 } as const;
 
 /**

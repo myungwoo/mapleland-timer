@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import AppHeader from '@/components/AppHeader';
 import Timer from '@/components/Timer';
 import StatsForm from '@/components/StatsForm';
@@ -18,7 +18,18 @@ interface TimerState {
   isRunning: boolean;
   targetTime: number | null;
   mode: 'stopwatch' | 'timer';
+  /**
+   * 타이머가 끝났는데 아직 확인하지 않았다면 그 시각. 확인하면 null 이 된다.
+   *
+   * 저장해 두는 이유는 자리를 비운 사이 끝난 경우 때문이다 — 예전에는 다시 열면 조용히
+   * 0 으로 돌아가서, 끝났다는 사실 자체를 알 방법이 없었다. 이 필드가 없던 시절에 저장된
+   * 값은 undefined 로 읽혀 '알릴 것 없음' 이 된다.
+   */
+  finishedAt?: number | null;
 }
+
+/** layout.tsx 의 metadata.title 과 같다. 알림 때 제목을 바꿨다가 되돌리는 기준. */
+const BASE_TITLE = '메이플랜드 사냥 타이머';
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +40,8 @@ export default function Home() {
   const [records, setRecords] = useState<HuntingRecord[]>([]);
   const [isRecordsOpen, setIsRecordsOpen] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  // 타이머가 끝났는데 아직 확인하지 않았으면 그 시각.
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [rate, setRate] = useState<RateMinutes>(DEFAULT_RATE);
 
   // 입력 중인 한 판. 폼과 결과 패널이 같은 값을 봐야 해서 여기서 들고 있는다.
@@ -62,10 +75,11 @@ export default function Home() {
             if (timerState.mode === 'timer') {
               const remainingTime = Math.max(0, Math.floor((timerState.targetTime - now) / 1000));
               if (remainingTime <= 0) {
-                // 타이머가 이미 종료된 상태면 조용히 초기화
+                // 자리를 비운 사이 끝났다. 조용히 지우지 않고 끝난 시각을 남겨 알린다.
                 setIsTimerRunning(false);
                 setTargetTime(null);
                 setElapsedTime(0);
+                setFinishedAt(timerState.targetTime);
               } else {
                 setElapsedTime(remainingTime);
               }
@@ -75,6 +89,7 @@ export default function Home() {
             }
           } else {
             setElapsedTime(timerState.time);
+            setFinishedAt(timerState.finishedAt ?? null);
           }
         } catch (error) {
           console.error('Failed to parse timer state:', error);
@@ -110,11 +125,29 @@ export default function Home() {
         time: elapsedTime,
         isRunning: isTimerRunning,
         targetTime,
-        mode: timerMode
+        mode: timerMode,
+        finishedAt,
       };
       localStorage.setItem(STORAGE_KEY.TIMER, JSON.stringify(timerState));
     }
-  }, [isLoading, elapsedTime, isTimerRunning, timerMode, targetTime]);
+  }, [isLoading, elapsedTime, isTimerRunning, timerMode, targetTime, finishedAt]);
+
+  /**
+   * 끝난 걸 확인할 때까지 탭 제목에 남긴다.
+   *
+   * 사냥 중에는 게임 창을 보고 있어서 화면 안 신호는 눈에 들어오지 않는다. 탭 제목은
+   * 권한을 물어보지 않고도 창 밖에서 보이는 유일한 자리다.
+   */
+  useEffect(() => {
+    if (finishedAt === null) return;
+    document.title = `⏰ 시간 종료 · ${BASE_TITLE}`;
+    return () => {
+      document.title = BASE_TITLE;
+    };
+  }, [finishedAt]);
+
+  const handleTimerFinished = useCallback(() => setFinishedAt(Date.now()), []);
+  const handleAcknowledgeFinish = useCallback(() => setFinishedAt(null), []);
 
   useEffect(() => {
     if (!isLoading) {
@@ -231,6 +264,9 @@ export default function Home() {
                 onModeChange={setTimerMode}
                 targetTime={targetTime}
                 onTargetTimeChange={setTargetTime}
+                finishedAt={finishedAt}
+                onFinished={handleTimerFinished}
+                onAcknowledgeFinish={handleAcknowledgeFinish}
               />
               <StatsForm
                 stats={stats}
