@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Button from './ui/Button';
 import Card from './ui/Card';
 import SegmentedControl from './ui/SegmentedControl';
+import { useDialog } from './ui/Dialog';
 import { formatClock } from '@/lib/hunting';
 
 interface TimerProps {
@@ -36,6 +37,7 @@ export default function Timer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isAudioLoaded, setIsAudioLoaded] = useState<boolean>(false);
   const [isFlashing, setIsFlashing] = useState<boolean>(false);
+  const dialog = useDialog();
 
   const startFlashing = useCallback(() => {
     setIsFlashing(true);
@@ -204,16 +206,23 @@ export default function Timer({
     });
   }, [isRunning, targetTime]);
 
-  const handleReset = () => {
-    if (window.confirm('타이머를 초기화하시겠습니까?')) {
-      setIsRunning(false);
-      if (onRunningChange) {
-        onRunningChange(false);
-      }
-      onTargetTimeChange(null);
-      setTime(0);
-      onTimeUpdate(0);
+  const handleReset = async () => {
+    const shown = formatClock(time);
+    const confirmed = await dialog.confirm({
+      title: '타이머를 초기화할까요?',
+      description: `지금 표시된 ${shown.hours}:${shown.minutes}:${shown.seconds} 가 00:00:00 이 됩니다.`,
+      confirmLabel: '초기화',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    setIsRunning(false);
+    if (onRunningChange) {
+      onRunningChange(false);
     }
+    onTargetTimeChange(null);
+    setTime(0);
+    onTimeUpdate(0);
   };
 
   const startEditing = () => {

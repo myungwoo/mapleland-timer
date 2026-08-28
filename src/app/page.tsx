@@ -7,6 +7,7 @@ import StatsForm from '@/components/StatsForm';
 import ResultsPanel from '@/components/ResultsPanel';
 import HuntingRecords from '@/components/HuntingRecords';
 import Drawer from '@/components/ui/Drawer';
+import { DialogProvider } from '@/components/ui/Dialog';
 import { HuntingRecord, HuntingStats } from '@/types/hunting';
 import { Item } from '@/components/ItemManager';
 import { STORAGE_KEY, migrateLegacyStorageKeys } from '@/constants/storage';
@@ -27,6 +28,7 @@ export default function Home() {
   const [targetTime, setTargetTime] = useState<number | null>(null);
   const [records, setRecords] = useState<HuntingRecord[]>([]);
   const [isRecordsOpen, setIsRecordsOpen] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // 입력 중인 한 판. 폼과 결과 패널이 같은 값을 봐야 해서 여기서 들고 있는다.
   const [stats, setStats] = useState<HuntingStats>(EMPTY_STATS);
@@ -136,9 +138,16 @@ export default function Home() {
     [stats, items, elapsedTime],
   );
 
+  // 사냥터를 채우면 오류 문구는 바로 거둔다. 저장을 다시 눌러야 사라지면 잔소리가 된다.
+  const handleStatsChange = (next: HuntingStats) => {
+    setStats(next);
+    if (locationError && next.location.trim()) setLocationError(null);
+  };
+
   const handleSaveRecord = () => {
     if (!stats.location.trim()) {
-      alert('사냥터 이름을 입력해주세요.');
+      // 확인창으로 알리면 어느 칸이 문제인지 가려 버린다. 그 칸 아래 붙여 두고 포커스를 옮긴다.
+      setLocationError('사냥터 이름을 입력해 주세요.');
       return;
     }
 
@@ -153,6 +162,7 @@ export default function Home() {
       results,
     };
 
+    setLocationError(null);
     setRecords(prev => [record, ...prev]);
     setIsRecordsOpen(true);
   };
@@ -163,6 +173,7 @@ export default function Home() {
 
   const handleLoadRecord = (record: HuntingRecord) => {
     setElapsedTime(record.duration);
+    setLocationError(null);
     setStats({ ...EMPTY_STATS, ...record.stats });
     setItems(record.items);
     setNote(record.note);
@@ -187,68 +198,71 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-bg">
-      <AppHeader
-        elapsedTime={elapsedTime}
-        isRunning={isTimerRunning}
-        mode={timerMode}
-        recordCount={records.length}
-        onOpenRecords={() => setIsRecordsOpen(true)}
-      />
-
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        {/*
-          넓은 화면에서는 왼쪽에 타이머와 입력, 오른쪽에 정산 결과를 붙여 두고 결과만
-          따라다니게 한다. 좁은 화면에서는 그대로 한 줄로 쌓이고, 결과와 저장 버튼이
-          입력 아래 마지막에 온다 — 실제로 값을 다 적은 뒤에 보는 순서다.
-        */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
-          <div className="flex flex-col gap-4">
-            <Timer
-              onTimeUpdate={setElapsedTime}
-              initialTime={elapsedTime}
-              isRunning={isTimerRunning}
-              onRunningChange={setIsTimerRunning}
-              mode={timerMode}
-              onModeChange={setTimerMode}
-              targetTime={targetTime}
-              onTargetTimeChange={setTargetTime}
-            />
-            <StatsForm
-              stats={stats}
-              onStatsChange={setStats}
-              items={items}
-              onItemsChange={setItems}
-              note={note}
-              onNoteChange={setNote}
-            />
-          </div>
-
-          <div className="lg:sticky lg:top-[4.5rem]">
-            <ResultsPanel
-              stats={stats}
-              results={results}
-              elapsedTime={elapsedTime}
-              onSave={handleSaveRecord}
-            />
-          </div>
-        </div>
-      </main>
-
-      <Drawer
-        open={isRecordsOpen}
-        onClose={() => setIsRecordsOpen(false)}
-        title="사냥 기록"
-        description={records.length > 0 ? `${records.length}개 저장됨` : undefined}
-      >
-        <HuntingRecords
-          records={records}
-          onDelete={handleDeleteRecord}
-          onLoad={handleLoadRecord}
-          onImport={handleImportRecords}
-          onClearAll={handleClearAllRecords}
+    <DialogProvider>
+      <div className="min-h-screen bg-bg">
+        <AppHeader
+          elapsedTime={elapsedTime}
+          isRunning={isTimerRunning}
+          mode={timerMode}
+          recordCount={records.length}
+          onOpenRecords={() => setIsRecordsOpen(true)}
         />
-      </Drawer>
-    </div>
+
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+          {/*
+            넓은 화면에서는 왼쪽에 타이머와 입력, 오른쪽에 정산 결과를 붙여 두고 결과만
+            따라다니게 한다. 좁은 화면에서는 그대로 한 줄로 쌓이고, 결과와 저장 버튼이
+            입력 아래 마지막에 온다 — 실제로 값을 다 적은 뒤에 보는 순서다.
+          */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
+            <div className="flex flex-col gap-4">
+              <Timer
+                onTimeUpdate={setElapsedTime}
+                initialTime={elapsedTime}
+                isRunning={isTimerRunning}
+                onRunningChange={setIsTimerRunning}
+                mode={timerMode}
+                onModeChange={setTimerMode}
+                targetTime={targetTime}
+                onTargetTimeChange={setTargetTime}
+              />
+              <StatsForm
+                stats={stats}
+                onStatsChange={handleStatsChange}
+                locationError={locationError}
+                items={items}
+                onItemsChange={setItems}
+                note={note}
+                onNoteChange={setNote}
+              />
+            </div>
+
+            <div className="lg:sticky lg:top-[4.5rem]">
+              <ResultsPanel
+                stats={stats}
+                results={results}
+                elapsedTime={elapsedTime}
+                onSave={handleSaveRecord}
+              />
+            </div>
+          </div>
+        </main>
+
+        <Drawer
+          open={isRecordsOpen}
+          onClose={() => setIsRecordsOpen(false)}
+          title="사냥 기록"
+          description={records.length > 0 ? `${records.length}개 저장됨` : undefined}
+        >
+          <HuntingRecords
+            records={records}
+            onDelete={handleDeleteRecord}
+            onLoad={handleLoadRecord}
+            onImport={handleImportRecords}
+            onClearAll={handleClearAllRecords}
+          />
+        </Drawer>
+      </div>
+    </DialogProvider>
   );
 }

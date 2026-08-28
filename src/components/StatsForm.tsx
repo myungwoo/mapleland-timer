@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import ItemManager, { Item } from './ItemManager';
 import Button, { IconButton } from './ui/Button';
 import NumericInput from './ui/NumericInput';
+import { useDialog } from './ui/Dialog';
 import Card, { CardHeader } from './ui/Card';
 import { HuntingStats } from '@/types/hunting';
 import { EMPTY_STATS } from '@/lib/hunting';
@@ -14,6 +16,8 @@ interface StatsFormProps {
   onItemsChange: (items: Item[]) => void;
   note: string;
   onNoteChange: (note: string) => void;
+  /** 저장에 실패한 이유. 사냥터 칸 아래에 붙는다. */
+  locationError?: string | null;
 }
 
 /**
@@ -90,31 +94,54 @@ export default function StatsForm({
   onItemsChange,
   note,
   onNoteChange,
+  locationError = null,
 }: StatsFormProps) {
+  const dialog = useDialog();
+  const locationRef = useRef<HTMLInputElement>(null);
+
+  // 저장을 눌렀는데 사냥터가 비어 있으면, 그 칸이 화면 밖에 있을 수 있으니 데려온다.
+  useEffect(() => {
+    if (!locationError) return;
+    locationRef.current?.focus();
+    locationRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [locationError]);
+
   const handleChange = (name: string, value: string) => {
     onStatsChange({ ...stats, [name]: value });
   };
 
-  const handleFullClear = () => {
-    if (window.confirm('모든 데이터를 전체 지우시겠습니까?')) {
-      onStatsChange({ ...EMPTY_STATS });
-      onItemsChange([]);
-      onNoteChange('');
-    }
+  const handleFullClear = async () => {
+    const confirmed = await dialog.confirm({
+      title: '입력한 내용을 모두 지울까요?',
+      description: '사냥터, 레벨, 경험치, 메소, 아이템, 노트가 모두 비워집니다. 저장된 기록은 그대로입니다.',
+      confirmLabel: '모두 지우기',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    onStatsChange({ ...EMPTY_STATS });
+    onItemsChange([]);
+    onNoteChange('');
   };
 
-  const handlePartialClear = () => {
-    if (window.confirm('경험치, 메소, 아이템 개수를 지우시겠습니까?\n(사냥터와 레벨은 유지됩니다)')) {
-      onStatsChange({
-        ...stats,
-        startExp: '',
-        startMeso: '',
-        endExp: '',
-        endMeso: '',
-      });
-      onItemsChange(items.map(item => ({ ...item, startCount: '', endCount: '' })));
-      onNoteChange('');
-    }
+  const handlePartialClear = async () => {
+    const confirmed = await dialog.confirm({
+      title: '수치만 지울까요?',
+      description: '경험치, 메소, 아이템 개수, 노트가 비워집니다. 사냥터와 레벨, 아이템 이름과 가격은 그대로 두어 다음 판에 바로 씁니다.',
+      confirmLabel: '수치 지우기',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    onStatsChange({
+      ...stats,
+      startExp: '',
+      startMeso: '',
+      endExp: '',
+      endMeso: '',
+    });
+    onItemsChange(items.map(item => ({ ...item, startCount: '', endCount: '' })));
+    onNoteChange('');
   };
 
   const handleSwap = () => {
@@ -155,14 +182,24 @@ export default function StatsForm({
             사냥터
           </label>
           <input
+            ref={locationRef}
             id="location"
             type="text"
             name="location"
             value={stats.location}
             onChange={(e) => handleChange(e.target.name, e.target.value)}
             placeholder="예: 커닝시티 지하철 3번 승강장"
-            className="field field-sunken"
+            aria-invalid={locationError ? true : undefined}
+            aria-describedby={locationError ? 'location-error' : undefined}
+            className={`field field-sunken ${
+              locationError ? 'border-danger focus:border-danger focus:ring-danger/30' : ''
+            }`}
           />
+          {locationError && (
+            <p id="location-error" role="alert" className="mt-1.5 text-xs text-danger">
+              {locationError}
+            </p>
+          )}
         </div>
 
         <div className="space-y-4">

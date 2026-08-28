@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { HuntingRecord } from '@/types/hunting';
 import Button, { IconButton } from './ui/Button';
+import { useDialog } from './ui/Dialog';
 
 interface HuntingRecordsProps {
   records: HuntingRecord[];
@@ -33,6 +34,7 @@ export default function HuntingRecords({ records, onDelete, onLoad, onImport, on
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialog = useDialog();
 
   const filteredRecords = records.filter(record => {
     const query = searchQuery.toLowerCase();
@@ -91,20 +93,45 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
+      let importedRecords: HuntingRecord[];
       try {
-        const importedRecords = JSON.parse(e.target?.result as string);
-        if (Array.isArray(importedRecords)) {
-          if (window.confirm('기존 기록에 추가하시겠습니까?\n취소를 선택하면 기존 기록이 삭제됩니다.')) {
-            onImport([...records, ...importedRecords]);
-          } else {
-            onImport(importedRecords);
-          }
-        }
+        const parsed = JSON.parse(e.target?.result as string);
+        if (!Array.isArray(parsed)) throw new Error('기록 배열이 아닙니다.');
+        importedRecords = parsed;
       } catch (error) {
         console.error('Failed to parse records:', error);
-        alert('파일 형식이 올바르지 않습니다.');
+        await dialog.alert({
+          title: '파일을 읽지 못했습니다',
+          description: '내보내기로 받은 JSON 파일인지 확인해 주세요.',
+        });
+        return;
       }
+
+      // 예전에는 확인창의 "취소" 가 곧 전체 교체였다. 두 갈래 버튼에 세 갈래 뜻을 담느라
+      // 문구를 잘못 읽으면 저장된 기록이 통째로 사라졌고, 서버가 없어 되돌릴 수도 없었다.
+      const mode = await dialog.ask<'append' | 'replace' | 'cancel'>({
+        title: `기록 ${importedRecords.length}건을 불러옵니다`,
+        description:
+          records.length > 0
+            ? `지금 저장된 기록은 ${records.length}건입니다. 어떻게 할까요?`
+            : undefined,
+        cancelValue: 'cancel',
+        choices:
+          records.length > 0
+            ? [
+                { value: 'cancel', label: '취소', tone: 'neutral' },
+                { value: 'replace', label: '모두 교체', tone: 'danger' },
+                { value: 'append', label: '기존에 추가', tone: 'primary' },
+              ]
+            : [
+                { value: 'cancel', label: '취소', tone: 'neutral' },
+                { value: 'append', label: '불러오기', tone: 'primary' },
+              ],
+      });
+
+      if (mode === 'append') onImport([...records, ...importedRecords]);
+      else if (mode === 'replace') onImport(importedRecords);
     };
     reader.readAsText(file);
     event.target.value = ''; // Reset file input
@@ -132,10 +159,14 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
           variant="ghost"
           className="ml-auto text-danger hover:text-danger-hover"
           disabled={records.length === 0}
-          onClick={() => {
-            if (window.confirm('모든 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-              onClearAll();
-            }
+          onClick={async () => {
+            const confirmed = await dialog.confirm({
+              title: `기록 ${records.length}건을 모두 삭제할까요?`,
+              description: '되돌릴 수 없습니다. 남겨 두려면 먼저 내보내기로 파일을 받아 두세요.',
+              confirmLabel: '모두 삭제',
+              tone: 'danger',
+            });
+            if (confirmed) onClearAll();
           }}
         >
           모두 삭제
@@ -224,10 +255,14 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                       className="h-8 w-8"
                       label="이 기록 불러오기"
                       tone="success"
-                      onClick={() => {
-                        if (window.confirm('이 기록의 데이터를 불러오시겠습니까?\n현재 입력된 데이터는 사라집니다.')) {
-                          onLoad(record);
-                        }
+                      onClick={async () => {
+                        const confirmed = await dialog.confirm({
+                          title: `'${record.location}' 기록을 불러올까요?`,
+                          description: '지금 입력 중인 내용이 이 기록의 값으로 바뀝니다. 저장된 기록은 그대로입니다.',
+                          confirmLabel: '불러오기',
+                          tone: 'primary',
+                        });
+                        if (confirmed) onLoad(record);
                       }}
                     >
                       <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.75} stroke="currentColor" className="h-4 w-4">
@@ -254,10 +289,14 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                       className="h-8 w-8"
                       label="이 기록 삭제"
                       tone="danger"
-                      onClick={() => {
-                        if (window.confirm('이 기록을 삭제하시겠습니까?')) {
-                          onDelete(record.id);
-                        }
+                      onClick={async () => {
+                        const confirmed = await dialog.confirm({
+                          title: `'${record.location}' 기록을 삭제할까요?`,
+                          description: '되돌릴 수 없습니다.',
+                          confirmLabel: '삭제',
+                          tone: 'danger',
+                        });
+                        if (confirmed) onDelete(record.id);
                       }}
                     >
                       <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.75} stroke="currentColor" className="h-4 w-4">

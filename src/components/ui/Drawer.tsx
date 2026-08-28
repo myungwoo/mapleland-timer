@@ -27,7 +27,11 @@ export default function Drawer({ open, onClose, title, description, children }: 
     panelRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Escape') return;
+      // 확인창이 이 위에 떠 있으면 Esc 는 그쪽 몫이다. 여기까지 처리하면 확인창을 물리는
+      // 김에 서랍까지 닫혀 버린다.
+      if ((event.target as Element | null)?.closest?.('[data-dialog-layer]')) return;
+      onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
 
