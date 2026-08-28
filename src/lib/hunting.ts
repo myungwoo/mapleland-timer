@@ -1,5 +1,5 @@
 import { Item } from '@/components/ItemManager';
-import { HuntingRecord, HuntingStats } from '@/types/hunting';
+import { HuntingRecord, HuntingResults, HuntingStats, LegacyResults } from '@/types/hunting';
 
 export const EMPTY_STATS: HuntingStats = {
   location: '',
@@ -72,7 +72,6 @@ const calculateItemStats = (items: Item[], minutesElapsed: number) =>
       name: item.name,
       diff,
       perMinute: round2(perMinute),
-      perFiveMin: round2(perMinute * 5),
       value: diff * price,
     };
   });
@@ -80,14 +79,16 @@ const calculateItemStats = (items: Item[], minutesElapsed: number) =>
 /**
  * 사냥 한 판의 정산 결과. 입력은 전부 문자열이라 숫자로 못 읽히면 0으로 본다.
  *
- * 화면 여러 곳(입력 폼 옆 결과 패널, 저장되는 기록)이 같은 값을 봐야 해서 순수 함수로
- * 빼 두었다. 계산식은 예전 StatsForm 안에 있던 것과 같다.
+ * 순수 함수라 언제 불러도 같은 답이 나온다. 그래서 결과를 기록에 넣어 두지 않고 볼 때마다
+ * 다시 낸다 — 저장해 두면 수치의 뜻을 바꿀 때마다(5분당 → 분당처럼) 쌓인 기록을 전부
+ * 손봐야 한다. 계산식은 최초 커밋 이후 바뀐 적이 없어서, 옛 기록을 다시 계산해도 그때
+ * 보이던 숫자가 그대로 나온다.
  */
 export const calculateResults = (
   stats: HuntingStats,
   items: Item[],
   elapsedTime: number,
-): HuntingRecord['results'] => {
+): HuntingResults => {
   const startLevelNum = parseInt(stats.startLevel) || 0;
   const endLevelNum = parseInt(stats.endLevel) || 0;
   const startExpNum = parseInt(stats.startExp) || 0;
@@ -131,50 +132,39 @@ export const calculateResults = (
     itemStats,
     netMesoGained,
     mesoPerMinute: Math.round(mesoPerMinute),
-
-    // 되돌린 배포가 읽을 수 있게 5분당 값도 같이 남긴다. types/hunting.ts 참고.
-    expPerFiveMin: Math.round(expPerMinute * 5),
-    mesoPerFiveMin: Math.round(mesoPerMinute * 5),
   };
 };
+
+/** 저장된 기록의 정산 결과. 기록은 재료(stats·items·duration)만 들고 있다. */
+export const resultsOf = (record: HuntingRecord): HuntingResults =>
+  calculateResults(record.stats, record.items, record.duration);
+
+/**
+ * 되돌린 배포가 읽을 수 있는 모양으로 옮긴다. 저장할 때만 쓴다 — `types/hunting.ts` 의
+ * `LegacyResults` 설명 참조.
+ */
+export const toLegacyResults = (results: HuntingResults): LegacyResults => ({
+  levelDiff: results.levelDiff,
+  startExpPercentage: results.startExpPercentage,
+  endExpPercentage: results.endExpPercentage,
+  expGained: results.expGained,
+  expPerFiveMin: Math.round(results.expPerMinute * 5),
+  rawMesoGained: results.rawMesoGained,
+  netMesoGained: results.netMesoGained,
+  mesoPerFiveMin: Math.round(results.mesoPerMinute * 5),
+  itemStats: results.itemStats.map(item => ({
+    name: item.name,
+    diff: item.diff,
+    perFiveMin: round2(item.perMinute * 5),
+    value: item.value,
+  })),
+});
 
 /** 순수 메소만 따진 분당 수익(아이템 가치 제외). */
 export const rawMesoPerMinute = (rawMesoGained: number, elapsedTime: number) => {
   const minutesElapsed = elapsedTime / 60;
   return minutesElapsed > 0 ? Math.round(rawMesoGained / minutesElapsed) : 0;
 };
-
-/**
- * 5분당으로 저장된 예전 기록을 분당으로 맞춘다.
- *
- * 화면은 이제 분당만 읽는다. 예전 기록을 그대로 두면 5분당 값에 "1분당" 딱지가 붙어
- * 다섯 배로 부풀어 보인다. 저장된 값을 5 로 나눌 뿐 다시 계산하지는 않는다 — 그때 화면에
- * 보였던 수치를 그대로 옮겨야 지난 기록의 뜻이 바뀌지 않는다.
- *
- * 이미 분당 값이 있으면 그대로 둔다. 여러 번 돌려도 결과가 같다.
- */
-export const normalizeRecords = (records: HuntingRecord[]): HuntingRecord[] =>
-  records.map(record => {
-    const results = record.results;
-    if (!results || typeof results.expPerMinute === 'number') return record;
-
-    const fromFiveMin = (value: number | undefined) =>
-      typeof value === 'number' ? Math.round(value / 5) : 0;
-
-    return {
-      ...record,
-      results: {
-        ...results,
-        expPerMinute: fromFiveMin(results.expPerFiveMin),
-        mesoPerMinute: fromFiveMin(results.mesoPerFiveMin),
-        itemStats: (results.itemStats ?? []).map(item => ({
-          ...item,
-          perMinute:
-            typeof item.perMinute === 'number' ? item.perMinute : round2((item.perFiveMin ?? 0) / 5),
-        })),
-      },
-    };
-  });
 
 /** 초 단위 시간을 시:분:초 두 자리로. */
 export const formatClock = (totalSeconds: number) => {

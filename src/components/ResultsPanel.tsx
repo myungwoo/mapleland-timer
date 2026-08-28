@@ -3,12 +3,12 @@
 import { ReactNode } from 'react';
 import Button from './ui/Button';
 import Card, { CardHeader } from './ui/Card';
-import { HuntingRecord, HuntingStats } from '@/types/hunting';
+import { HuntingResults, HuntingStats } from '@/types/hunting';
 import { formatClock, rawMesoPerMinute } from '@/lib/hunting';
 
 interface ResultsPanelProps {
   stats: HuntingStats;
-  results: HuntingRecord['results'];
+  results: HuntingResults;
   elapsedTime: number;
   onSave: () => void;
 }

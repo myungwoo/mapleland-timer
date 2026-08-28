@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { HuntingRecord } from '@/types/hunting';
+import { useMemo, useState, useRef } from 'react';
+import { HuntingRecord, HuntingResults } from '@/types/hunting';
 import Button, { IconButton } from './ui/Button';
 import { useDialog } from './ui/Dialog';
-import { normalizeRecords } from '@/lib/hunting';
+import { resultsOf } from '@/lib/hunting';
 
 interface HuntingRecordsProps {
   records: HuntingRecord[];
@@ -37,13 +37,20 @@ export default function HuntingRecords({ records, onDelete, onLoad, onImport, on
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dialog = useDialog();
 
-  const filteredRecords = records.filter(record => {
+  // 정산 결과는 기록에 저장돼 있지 않다. 재료에서 다시 내되, 검색어를 칠 때마다 다시
+  // 계산하지 않도록 기록 목록이 바뀔 때만 낸다.
+  const entries = useMemo(
+    () => records.map(record => ({ record, results: resultsOf(record) })),
+    [records],
+  );
+
+  const filteredEntries = entries.filter(({ record }) => {
     const query = searchQuery.toLowerCase();
     return record.location.toLowerCase().includes(query) ||
            (record.note && record.note.toLowerCase().includes(query));
   });
 
-  const copyToClipboard = async (record: HuntingRecord) => {
+  const copyToClipboard = async (record: HuntingRecord, results: HuntingResults) => {
     const formattedRecord = `
 [메이플랜드 사냥 기록]
 시간: ${formatDate(record.timestamp)}
@@ -51,20 +58,20 @@ export default function HuntingRecords({ records, onDelete, onLoad, onImport, on
 진행 시간: ${formatDuration(record.duration)}
 ${record.note ? `\n메모: ${record.note}` : ''}
 
-레벨: Lv.${record.stats.startLevel} (${record.results.startExpPercentage}%) → Lv.${record.stats.endLevel} (${record.results.endExpPercentage}%)
-레벨 상승: ${record.results.levelDiff} 레벨
+레벨: Lv.${record.stats.startLevel} (${results.startExpPercentage}%) → Lv.${record.stats.endLevel} (${results.endExpPercentage}%)
+레벨 상승: ${results.levelDiff} 레벨
 
 경험치
-- 총 획득: ${record.results.expGained.toLocaleString()}
-- 1분당: ${record.results.expPerMinute.toLocaleString()}
+- 총 획득: ${results.expGained.toLocaleString()}
+- 1분당: ${results.expPerMinute.toLocaleString()}
 
 메소
-- 순수 획득: ${record.results.rawMesoGained.toLocaleString()} 메소
-- 총 순수익: ${record.results.netMesoGained.toLocaleString()} 메소
-- 1분당: ${record.results.mesoPerMinute.toLocaleString()} 메소
+- 순수 획득: ${results.rawMesoGained.toLocaleString()} 메소
+- 총 순수익: ${results.netMesoGained.toLocaleString()} 메소
+- 1분당: ${results.mesoPerMinute.toLocaleString()} 메소
 
-${record.results.itemStats.length > 0 ? `아이템 변동:
-${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (1분당 ${item.perMinute.toFixed(2)}개)
+${results.itemStats.length > 0 ? `아이템 변동:
+${results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : ''}${item.diff.toLocaleString()}개 (1분당 ${item.perMinute.toFixed(2)}개)
   가치: ${item.value.toLocaleString()} 메소`).join('\n')}` : ''}`;
 
     try {
@@ -99,8 +106,7 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
       try {
         const parsed = JSON.parse(e.target?.result as string);
         if (!Array.isArray(parsed)) throw new Error('기록 배열이 아닙니다.');
-        // 예전에 내보낸 파일은 5분당 값을 담고 있다.
-        importedRecords = normalizeRecords(parsed);
+        importedRecords = parsed;
       } catch (error) {
         console.error('Failed to parse records:', error);
         await dialog.alert({
@@ -204,13 +210,13 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
           <br />
           정산 결과에서 <span className="text-muted">기록 저장</span>을 누르면 여기에 쌓입니다.
         </p>
-      ) : filteredRecords.length === 0 ? (
+      ) : filteredEntries.length === 0 ? (
         <p className="px-4 py-10 text-center text-sm text-subtle">
           &lsquo;{searchQuery}&rsquo; 와 맞는 기록이 없습니다.
         </p>
       ) : (
         <ul className="space-y-2">
-          {filteredRecords.map(record => {
+          {filteredEntries.map(({ record, results }) => {
             const expanded = expandedId === record.id;
             return (
               <li
@@ -236,13 +242,13 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                       <div className="flex items-baseline justify-between gap-2">
                         <dt className="text-subtle">EXP/분</dt>
                         <dd className="font-mono font-medium text-accent">
-                          {record.results.expPerMinute.toLocaleString()}
+                          {results.expPerMinute.toLocaleString()}
                         </dd>
                       </div>
                       <div className="flex items-baseline justify-between gap-2">
                         <dt className="text-subtle">수익/분</dt>
                         <dd className="font-mono font-medium text-gold">
-                          {record.results.mesoPerMinute.toLocaleString()}
+                          {results.mesoPerMinute.toLocaleString()}
                         </dd>
                       </div>
                     </dl>
@@ -275,7 +281,7 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                       className="h-8 w-8"
                       label={copiedId === record.id ? '복사됨' : '텍스트로 복사'}
                       tone={copiedId === record.id ? 'success' : 'accent'}
-                      onClick={() => copyToClipboard(record)}
+                      onClick={() => copyToClipboard(record, results)}
                     >
                       {copiedId === record.id ? (
                         <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
@@ -313,36 +319,36 @@ ${record.results.itemStats.map(item => `- ${item.name}: ${item.diff > 0 ? '+' : 
                     <div>
                       <div className="mb-1 font-semibold text-muted">레벨</div>
                       <p className="text-text">
-                        Lv.{record.stats.startLevel} ({record.results.startExpPercentage}%) → Lv.
-                        {record.stats.endLevel} ({record.results.endExpPercentage}%)
-                        <span className="ml-2 text-accent">{record.results.levelDiff} 레벨</span>
+                        Lv.{record.stats.startLevel} ({results.startExpPercentage}%) → Lv.
+                        {record.stats.endLevel} ({results.endExpPercentage}%)
+                        <span className="ml-2 text-accent">{results.levelDiff} 레벨</span>
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                       <div className="flex justify-between gap-2">
                         <span className="text-subtle">총 경험치</span>
-                        <span className="font-mono text-text">{record.results.expGained.toLocaleString()}</span>
+                        <span className="font-mono text-text">{results.expGained.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between gap-2">
                         <span className="text-subtle">순수 메소</span>
-                        <span className="font-mono text-text">{record.results.rawMesoGained.toLocaleString()}</span>
+                        <span className="font-mono text-text">{results.rawMesoGained.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between gap-2">
                         <span className="text-subtle">총 순수익</span>
-                        <span className="font-mono text-gold">{record.results.netMesoGained.toLocaleString()}</span>
+                        <span className="font-mono text-gold">{results.netMesoGained.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between gap-2">
                         <span className="text-subtle">수익/분</span>
-                        <span className="font-mono text-gold">{record.results.mesoPerMinute.toLocaleString()}</span>
+                        <span className="font-mono text-gold">{results.mesoPerMinute.toLocaleString()}</span>
                       </div>
                     </div>
 
-                    {record.results.itemStats.length > 0 && (
+                    {results.itemStats.length > 0 && (
                       <div>
                         <div className="mb-1 font-semibold text-muted">아이템</div>
                         <ul className="space-y-1">
-                          {record.results.itemStats.map((item, index) => (
+                          {results.itemStats.map((item, index) => (
                             <li key={index} className="flex items-baseline justify-between gap-2">
                               <span className="truncate text-text">{item.name || '이름 없음'}</span>
                               <span className="shrink-0 font-mono text-subtle">

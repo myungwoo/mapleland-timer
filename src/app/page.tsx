@@ -11,7 +11,7 @@ import { DialogProvider } from '@/components/ui/Dialog';
 import { HuntingRecord, HuntingStats } from '@/types/hunting';
 import { Item } from '@/components/ItemManager';
 import { STORAGE_KEY, migrateLegacyStorageKeys } from '@/constants/storage';
-import { EMPTY_STATS, calculateResults, normalizeRecords } from '@/lib/hunting';
+import { EMPTY_STATS, calculateResults, toLegacyResults } from '@/lib/hunting';
 
 interface TimerState {
   time: number;
@@ -44,8 +44,7 @@ export default function Home() {
       // 기록 데이터 로드
       const savedRecords = localStorage.getItem(STORAGE_KEY.RECORDS);
       if (savedRecords) {
-        // 5분당으로 저장된 예전 기록을 분당으로 맞춘다.
-        setRecords(normalizeRecords(JSON.parse(savedRecords)));
+        setRecords(JSON.parse(savedRecords));
       }
 
       // 타이머 상태 로드
@@ -160,7 +159,8 @@ export default function Home() {
       stats,
       items,
       note: note.trim(),
-      results,
+      // 화면은 이 값을 읽지 않는다. 되돌린 배포를 위해서만 남긴다.
+      results: toLegacyResults(results),
     };
 
     setLocationError(null);
