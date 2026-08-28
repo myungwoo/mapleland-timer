@@ -11,7 +11,7 @@ import { DialogProvider } from '@/components/ui/Dialog';
 import { HuntingRecord, HuntingStats } from '@/types/hunting';
 import { Item } from '@/components/ItemManager';
 import { STORAGE_KEY, migrateLegacyStorageKeys } from '@/constants/storage';
-import { EMPTY_STATS, calculateResults, toLegacyResults } from '@/lib/hunting';
+import { EMPTY_STATS, calculateResults } from '@/lib/hunting';
 
 interface TimerState {
   time: number;
@@ -159,8 +159,6 @@ export default function Home() {
       stats,
       items,
       note: note.trim(),
-      // 화면은 이 값을 읽지 않는다. 되돌린 배포를 위해서만 남긴다.
-      results: toLegacyResults(results),
     };
 
     setLocationError(null);

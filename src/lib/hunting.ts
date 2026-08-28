@@ -1,5 +1,5 @@
 import { Item } from '@/components/ItemManager';
-import { HuntingRecord, HuntingResults, HuntingStats, LegacyResults } from '@/types/hunting';
+import { HuntingRecord, HuntingResults, HuntingStats } from '@/types/hunting';
 
 export const EMPTY_STATS: HuntingStats = {
   location: '',
@@ -138,27 +138,6 @@ export const calculateResults = (
 /** 저장된 기록의 정산 결과. 기록은 재료(stats·items·duration)만 들고 있다. */
 export const resultsOf = (record: HuntingRecord): HuntingResults =>
   calculateResults(record.stats, record.items, record.duration);
-
-/**
- * 되돌린 배포가 읽을 수 있는 모양으로 옮긴다. 저장할 때만 쓴다 — `types/hunting.ts` 의
- * `LegacyResults` 설명 참조.
- */
-export const toLegacyResults = (results: HuntingResults): LegacyResults => ({
-  levelDiff: results.levelDiff,
-  startExpPercentage: results.startExpPercentage,
-  endExpPercentage: results.endExpPercentage,
-  expGained: results.expGained,
-  expPerFiveMin: Math.round(results.expPerMinute * 5),
-  rawMesoGained: results.rawMesoGained,
-  netMesoGained: results.netMesoGained,
-  mesoPerFiveMin: Math.round(results.mesoPerMinute * 5),
-  itemStats: results.itemStats.map(item => ({
-    name: item.name,
-    diff: item.diff,
-    perFiveMin: round2(item.perMinute * 5),
-    value: item.value,
-  })),
-});
 
 /** 순수 메소만 따진 분당 수익(아이템 가치 제외). */
 export const rawMesoPerMinute = (rawMesoGained: number, elapsedTime: number) => {
