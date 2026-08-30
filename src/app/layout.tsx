@@ -1,16 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
+// 한글까지 한 벌로 덮는 본문 폰트. dynamic-subset 이라 unicode-range 로 92 조각으로
+// 갈려 있고, 실제로는 화면에 뜬 글자가 든 조각만 받는다. next/font 는 unicode-range 를
+// 다루지 못해 @font-face 를 직접 쓴다 — 대신 src/ 안에 둬서 webpack 이 url() 을
+// basePath 붙은 경로로 다시 쓰게 한다(public/ 에 두면 경로가 배포처에 묶인다).
+import "./fonts/pretendard.css";
 import "./globals.css";
 import {
   LEGACY_THEME_STORAGE_KEY,
   THEME_STORAGE_KEY,
 } from '@/constants/storage';
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-});
 
 // 타이머 숫자와 정산 수치용. 자릿수가 늘어도 폭이 흔들리지 않아야 한다.
 const jetbrainsMono = JetBrains_Mono({
@@ -61,7 +60,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
+      <body className={`${jetbrainsMono.variable} font-sans`}>
         {children}
       </body>
     </html>
