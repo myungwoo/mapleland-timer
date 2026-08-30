@@ -50,8 +50,13 @@ const config: Config = {
         ring: token('ring'),
       },
       fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+        // 본문은 Pretendard 한 벌로 라틴과 한글을 모두 덮는다(@font-face 는
+        // src/app/fonts/pretendard.css). OS 기본 한글 폰트로 새지 않아 윈도우에서
+        // 굴림으로 보이던 문제가 없고, 어느 OS 에서나 같은 서체로 보인다.
+        sans: ['Pretendard Variable', 'Pretendard', 'system-ui', 'sans-serif'],
+        // 숫자는 자릿수 폭이 고정된 JetBrains Mono 를 유지한다. 한글은 여기에 없으므로
+        // 글자 단위 대체로 Pretendard 가 받는다 — monospace(굴림체)까지 내려가면 안 된다.
+        mono: ['var(--font-mono)', 'Pretendard Variable', 'ui-monospace', 'monospace'],
       },
       borderColor: {
         DEFAULT: token('border'),
